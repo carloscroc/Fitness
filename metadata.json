@@ -1,0 +1,8 @@
+{
+  "name": " Sentient Fitness",
+  "description": "A premium, fitness and social platform powered by advanced.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

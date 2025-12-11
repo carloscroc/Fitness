@@ -1,0 +1,125 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#000000" />
+    <title>NEO-FIT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Force dark mode for the premium aesthetic shown in screenshots
+      document.documentElement.classList.add('dark');
+      localStorage.theme = 'dark';
+
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ios: {
+                bg: '#000000',
+                card: '#1C1C1E', // Apple-style dark gray
+                text: '#FFFFFF',
+                subtext: '#E4E4E7', // Improved contrast (Zinc 200) - Lighter than before
+                divider: 'rgba(255,255,255,0.15)', // Increased opacity for better visibility
+                field: '#2C2C2E',
+                blue: '#0A84FF', 
+                red: '#FF453A',
+                green: '#30D158',
+                orange: '#FF9F0A',
+                purple: '#BF5AF2'
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'sans-serif'],
+              display: ['Outfit', 'sans-serif'],
+            },
+            borderRadius: {
+              'surface': '32px',
+              'item': '24px',
+              'action': '16px',
+            },
+            boxShadow: {
+              'surface': '0 0 0 1px rgba(255,255,255,0.1), 0 10px 40px -10px rgba(0,0,0,0.5)',
+              'float': '0 20px 40px -10px rgba(0,0,0,0.6)', 
+              'glow-green': '0 0 20px rgba(48, 209, 88, 0.3)',
+              'glow-blue': '0 0 20px rgba(10, 132, 255, 0.3)',
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --ios-bg: #000000;
+        --ios-card: #1C1C1E;
+        --ios-text: #FFFFFF;
+        --ios-subtext: #E4E4E7;
+      }
+
+      body {
+        background-color: #000000;
+        color: #FFFFFF;
+        font-family: 'Inter', sans-serif;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+      }
+      
+      h1, h2, h3, h4, h5, h6, .font-display {
+        font-family: 'Outfit', sans-serif;
+        letter-spacing: -0.02em;
+      }
+      
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+      }
+      
+      .glass {
+        background: rgba(28, 28, 30, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
