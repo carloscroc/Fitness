@@ -10,7 +10,8 @@
     "seed:generate": "node scripts/generate_sql_seed.js",
     "seed:split": "node scripts/split_sql_seed.js",
     "seed:rest": "node scripts/seed_exercises.js",
-    "seed": "npm run seed:generate && npm run seed:split && npm run seed:rest"
+    "seed": "npm run seed:generate && npm run seed:split && npm run seed:rest",
+    "start:mcp": "node server/mcp/server.js"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
