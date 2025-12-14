@@ -20,8 +20,8 @@ test.describe('Exercise video modal', () => {
     // Wait briefly for media to mount
     await page.waitForTimeout(500);
 
-    // Click the media container to toggle play
-    await page.click('[data-testid="video-container"]');
+    // Click the play button to toggle play (more reliable than container click)
+    await page.click('[data-testid="play-toggle"]');
 
     // Assert the UI shows play state change via data-playing attribute
     const toggle = page.locator('[data-testid="play-toggle"]');

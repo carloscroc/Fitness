@@ -211,14 +211,15 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                          (() => {
                              const yt = getYouTubeId(effectiveVideoUrl);
                              if (yt) {
-                                const src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&autoplay=${isPlaying ? 1 : 0}`;
+                                const base = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1`;
+                                const src = isPlaying ? `${base}&autoplay=1&mute=1` : `${base}&autoplay=0`;
                                  return (
                                      <iframe
                                          title={exercise.name}
                                          src={src}
                                          className="w-full h-full object-cover"
                                          frameBorder="0"
-                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
+                                         allow="autoplay; encrypted-media; clipboard-write; gyroscope; picture-in-picture; web-share"
                                          allowFullScreen
                                      />
                                  );
@@ -232,7 +233,12 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                                         src={effectiveVideoUrl}
                                         className="w-full h-full object-cover"
                                         playsInline
+                                        controls
                                         loop
+                                        crossOrigin="anonymous"
+                                        onLoadedMetadata={() => {
+                                            if (videoRef.current) setDuration(videoRef.current.duration);
+                                        }}
                                         onTimeUpdate={handleTimeUpdate}
                                         onEnded={() => setIsPlaying(false)}
                                     />
