@@ -1,0 +1,16 @@
+/* Minimal base styles to avoid 404 and provide root sizing */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #000000;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-root {
+  min-height: 100%;
+}

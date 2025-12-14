@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, ChevronRight, Filter, Plus, Edit2, Check } from 'lucide-react';
-import { EXERCISE_DB, EXERCISE_CATEGORIES, Exercise } from '../data/exercises.ts';
+import { EXERCISE_CATEGORIES, Exercise } from '../data/exercises.ts';
+import { useExercises } from '../hooks/useExercises';
 import { ExerciseDetailModal } from './ExerciseDetailModal.tsx';
 import { Button } from './ui/Button.tsx';
 
@@ -22,14 +23,16 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const { exercises: ALL_EXERCISES, loading } = useExercises();
   
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const filteredExercises = EXERCISE_DB.filter(ex => {
+  // `ALL_EXERCISES` is provided by the hook (local+remote merged)
+  const filteredExercises = ALL_EXERCISES.filter(ex => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          ex.muscle.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'All' || ex.muscle === activeCategory;
+                          (ex.muscle || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === 'All' || (ex.muscle === activeCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -50,8 +53,8 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
 
   const handleConfirmMultiSelect = () => {
       if (onMultiSelect) {
-          const selectedExercises = EXERCISE_DB.filter(ex => selectedIds.includes(ex.id));
-          onMultiSelect(selectedExercises);
+        const selectedExercises = ALL_EXERCISES.filter(ex => selectedIds.includes(ex.id));
+        onMultiSelect(selectedExercises);
           onClose();
           // Reset selection after confirming
           setSelectedIds([]);

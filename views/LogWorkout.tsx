@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { motion, useMotionValue, useTransform, useAnimation, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Trash2, Check, Plus, Clock, Zap, Dumbbell, ChevronRight, Calculator, ChevronLeft, Play, Maximize2, MoreHorizontal, List, Grid, Info, Minimize2, Pause } from 'lucide-react';
 import { ExerciseLibraryModal } from '../components/ExerciseLibraryModal.tsx';
-import { EXERCISE_DB, Exercise } from '../data/exercises.ts';
+import { useExercises } from '../hooks/useExercises';
+import type { Exercise } from '../data/exercises.ts';
 import { TimerModal } from '../components/TimerModal.tsx';
 import { WorkoutDay } from '../types.ts';
 
@@ -59,7 +60,8 @@ const SlideToFinish = ({ onFinish }: { onFinish: () => void }) => {
 };
 
 export const LogWorkout: React.FC<LogWorkoutProps> = ({ onClose, initialWorkout }) => {
-  // Modes: 'PLAYER' (Guided) or 'LIST' (Overview/Tracking)
+    const { exercises: ALL_EXERCISES, loading: exercisesLoading } = useExercises();
+    // Modes: 'PLAYER' (Guided) or 'LIST' (Overview/Tracking)
   const [viewMode, setViewMode] = useState<'PLAYER' | 'LIST'>(initialWorkout ? 'PLAYER' : 'LIST');
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false); // Controls video zoom/play state
@@ -69,8 +71,8 @@ export const LogWorkout: React.FC<LogWorkoutProps> = ({ onClose, initialWorkout 
   const [exercises, setExercises] = useState<any[]>(() => {
     if (initialWorkout && initialWorkout.exercises && initialWorkout.exercises.length > 0) {
         return initialWorkout.exercises.map(ex => {
-            // Enrich with DB data for images, instructions, etc.
-            const dbMatch = EXERCISE_DB.find(e => e.name === ex.name);
+            // Enrich with DB/remote data for images, instructions, etc.
+            const dbMatch = ALL_EXERCISES.find(e => e.name === ex.name);
             return {
                 id: Math.random().toString(36).substr(2, 9),
                 name: ex.name,
@@ -124,7 +126,7 @@ export const LogWorkout: React.FC<LogWorkoutProps> = ({ onClose, initialWorkout 
         setViewMode('PLAYER'); 
         
         const mappedExercises = initialWorkout.exercises.map(ex => {
-            const dbMatch = EXERCISE_DB.find(e => e.name === ex.name);
+            const dbMatch = ALL_EXERCISES.find(e => e.name === ex.name);
             return {
                 id: Math.random().toString(36).substr(2, 9),
                 name: ex.name,
@@ -146,7 +148,7 @@ export const LogWorkout: React.FC<LogWorkoutProps> = ({ onClose, initialWorkout 
         setExercises(mappedExercises);
         setIsLibraryOpen(false);
     }
-  }, [initialWorkout]);
+  }, [initialWorkout, ALL_EXERCISES]);
 
   const addExercise = (exercise: Exercise) => {
     const newExercise = {

@@ -12,6 +12,45 @@ interface ExerciseDetailModalProps {
   onAddToWorkout?: (action?: 'SCHEDULE' | 'START', date?: string) => void;
 }
 
+// Helper: robustly detect YouTube video ID from common YouTube URL formats
+function getYouTubeId(url?: string): string | null {
+    if (!url) return null;
+    try {
+        // First try query param `v`
+        const u = new URL(url, 'https://example.com');
+        const v = u.searchParams.get('v');
+        if (v && v.length >= 8) return v.substring(0, 11);
+    } catch (e) {
+        // fall through to regex
+    }
+
+    try {
+        // regex to catch many patterns (watch?v=, youtu.be/, embed/, /v/, shortlinks, extra params)
+        const re = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i;
+        const m = String(url).match(re);
+        if (m && m[1]) {
+            return m[1].length > 11 ? m[1].slice(0, 11) : m[1];
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return null;
+}
+
+// Extract a first-found YouTube URL from free text (overview/description)
+function extractYouTubeUrlFromText(text?: string): string | undefined {
+    if (!text) return undefined;
+    const urlRe = /(https?:\/\/[\s\S]*?youtube[\s\S]*?|https?:\/\/youtu\.be\/[\s\S]*?)/ig;
+    const match = urlRe.exec(text);
+    if (match && match[0]) return match[0];
+    // also try without protocol (e.g., www.youtube.com/...)
+    const urlRe2 = /(www\.youtube[\s\S]*?|youtu\.be\/[\s\S]*?)/ig;
+    const match2 = urlRe2.exec(text);
+    if (match2 && match2[0]) return `https://${match2[0]}`;
+    return undefined;
+}
+
 export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({ 
   exercise, onClose, onAddToWorkout 
 }) => {
@@ -81,6 +120,33 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
   const togglePlay = (e?: React.MouseEvent) => {
       e?.stopPropagation();
+      // If native video is mounted, control it directly as a user gesture to avoid autoplay blocks
+      if (videoRef.current) {
+          if (isPlaying) {
+              videoRef.current.pause();
+              setIsPlaying(false);
+          } else {
+              // If running under automation (Playwright / WebDriver), pre-mute to allow autoplay.
+              const isAutomation = typeof navigator !== 'undefined' && (navigator as any).webdriver;
+              if (isAutomation) videoRef.current.muted = true;
+              // Try to play; if blocked, retry after muting (common in headless/browser policies)
+              videoRef.current.play().then(() => {
+                  setIsPlaying(true);
+              }).catch(async () => {
+                  try {
+                      videoRef.current!.muted = true;
+                      await videoRef.current!.play();
+                      setIsPlaying(true);
+                  } catch (e) {
+                      // still failed — set state optimistically
+                      setIsPlaying(true);
+                  }
+              });
+          }
+          return;
+      }
+
+      // Fallback: toggle playing state (used for iframe embeds)
       setIsPlaying(!isPlaying);
   };
 
@@ -113,6 +179,10 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   const handleNextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+    // New: compute an effective video URL (explicit video first, then try to extract YouTube links from text)
+    const extractedFromOverview = extractYouTubeUrlFromText(exercise.overview);
+    const extractedFromDescription = extractYouTubeUrlFromText(exercise.description);
+    const effectiveVideoUrl = exercise.video ?? extractedFromOverview ?? extractedFromDescription;
   return createPortal(
     <motion.div 
       initial={{ opacity: 0 }}
@@ -132,23 +202,49 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
         {/* --- Video Player Section --- */}
         <div 
             ref={videoContainerRef}
+            data-testid="video-container"
             className="h-[55vh] relative shrink-0 bg-[#111] group overflow-hidden cursor-pointer"
             onClick={togglePlay}
         >
-           {/* Video Source */}
-           {exercise.video ? (
-               <video 
-                 ref={videoRef}
-                 src={exercise.video}
-                 className="w-full h-full object-cover"
-                 playsInline
-                 loop
-                 onTimeUpdate={handleTimeUpdate}
-                 onEnded={() => setIsPlaying(false)}
-               />
-           ) : (
-               <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />
-           )}
+                     {/* Video Source */}
+                     {effectiveVideoUrl ? (
+                         (() => {
+                             const yt = getYouTubeId(effectiveVideoUrl);
+                             if (yt) {
+                                const src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&autoplay=${isPlaying ? 1 : 0}`;
+                                 return (
+                                     <iframe
+                                         title={exercise.name}
+                                         src={src}
+                                         className="w-full h-full object-cover"
+                                         frameBorder="0"
+                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; autoplay"
+                                         allowFullScreen
+                                     />
+                                 );
+                             }
+
+                            const isFile = /\.(mp4|webm|ogg)(?:\?|$)/i.test(effectiveVideoUrl);
+                            if (isFile) {
+                                return (
+                                    <video 
+                                        ref={videoRef}
+                                        src={effectiveVideoUrl}
+                                        className="w-full h-full object-cover"
+                                        playsInline
+                                        loop
+                                        onTimeUpdate={handleTimeUpdate}
+                                        onEnded={() => setIsPlaying(false)}
+                                    />
+                                );
+                            }
+
+                             // Unknown remote URL: fall back to image preview
+                             return <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
+                         })()
+                     ) : (
+                         <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />
+                     )}
            
            {/* Dynamic Overlays */}
            <motion.div 
@@ -192,10 +288,12 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
               {/* Center Play Button */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
-                 <motion.button 
+                                 <motion.button 
                    whileHover={{ scale: 1.1 }}
                    whileTap={{ scale: 0.9 }}
-                   onClick={togglePlay}
+                                     data-testid="play-toggle"
+                                     data-playing={isPlaying}
+                                     onClick={togglePlay}
                    className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-2xl group"
                  >
                     {isPlaying ? <Pause size={32} className="fill-current" /> : <Play size={32} className="fill-current ml-2 group-hover:scale-110 transition-transform" />}

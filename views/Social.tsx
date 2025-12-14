@@ -6,7 +6,7 @@ import { Heart, MessageCircle, MoreHorizontal, Zap, MapPin, Send, Sparkles, User
 import { ChatMessage } from '../types.ts';
 import { askFitnessCoach } from '../services/geminiService.ts';
 import { Button } from '../components/ui/Button.tsx';
-import { EXERCISE_DB } from '../data/exercises.ts';
+import { useExercises } from '../hooks/useExercises';
 
 // --- Types & Mock Data ---
 
@@ -218,6 +218,7 @@ interface SocialProps {
 }
 
 export const Social: React.FC<SocialProps> = ({ onStartWorkout }) => {
+  const { exercises: ALL_EXERCISES, loading: exercisesLoading } = useExercises();
   const [activeTab, setActiveTab] = useState('FEED');
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [selectedWorkout, setSelectedWorkout] = useState<Post['workout'] | null>(null);
@@ -1361,7 +1362,7 @@ export const Social: React.FC<SocialProps> = ({ onStartWorkout }) => {
                    <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-4 px-1">Included Exercises</h3>
                    <div className="space-y-3">
                       {/* Mock Exercises for the view */}
-                      {EXERCISE_DB.slice(0, 4).map((ex, i) => (
+                         {ALL_EXERCISES.slice(0, 4).map((ex, i) => (
                          <div key={i} className="bg-[#2C2C2E] p-4 rounded-2xl flex items-center gap-4 border border-white/5">
                              <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-sm font-bold text-zinc-500 shadow-inner border border-white/5">{i + 1}</div>
                              <div className="flex-1">
@@ -1374,7 +1375,7 @@ export const Social: React.FC<SocialProps> = ({ onStartWorkout }) => {
                              </div>
                              <ChevronRight size={16} className="text-zinc-600" />
                          </div>
-                      ))}
+                         ))}
                    </div>
                 </div>
 

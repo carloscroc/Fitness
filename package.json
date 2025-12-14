@@ -11,7 +11,10 @@
     "seed:split": "node scripts/split_sql_seed.js",
     "seed:rest": "node scripts/seed_exercises.js",
     "seed": "npm run seed:generate && npm run seed:split && npm run seed:rest",
-    "start:mcp": "node server/mcp/server.js"
+    "start:mcp": "node server/mcp/server.js",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:install-browsers": "npx playwright install"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -22,9 +25,10 @@
     "recharts": "^3.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@supabase/supabase-js": "^2.66.0",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "@supabase/supabase-js": "^2.66.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
