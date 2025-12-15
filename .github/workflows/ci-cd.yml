@@ -1,0 +1,246 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [created]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  GO_VERSION: '1.21'
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: |
+          npm run lint
+          npm run lint:styles
+
+      - name: Type checking
+        run: npm run typecheck
+
+      - name: Security audit
+        run: |
+          npm audit --production
+          npx snyk test
+
+      - name: License check
+        run: npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC'
+
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [16, 18, 20]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit -- --coverage
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 18
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unittests
+          name: codecov-umbrella
+
+  build:
+    name: Build Application
+    needs: [quality, test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [development, staging, production]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up build environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: ${{ matrix.environment }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg VCS_REF=${GITHUB_SHA::8} \
+            --build-arg VERSION=${GITHUB_REF#refs/tags/} \
+            -t ${{ github.repository }}:${{ matrix.environment }}-${{ github.sha }} \
+            -t ${{ github.repository }}:${{ matrix.environment }}-latest \
+            .
+
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ github.repository }}:${{ matrix.environment }}-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Push to registry
+        if: github.event_name != 'pull_request'
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          docker push ${{ github.repository }}:${{ matrix.environment }}-${{ github.sha }}
+          docker push ${{ github.repository }}:${{ matrix.environment }}-latest
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-${{ matrix.environment }}
+          path: |
+            dist/
+            build/
+            .next/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to ${{ matrix.environment }}
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        environment: [staging, production]
+        exclude:
+          - environment: production
+            branches: [develop]
+    environment:
+      name: ${{ matrix.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to ECS
+        id: deploy
+        run: |
+          aws ecs register-task-definition \
+            --family myapp-${{ matrix.environment }} \
+            --container-definitions "[{
+              \"name\": \"app\",
+              \"image\": \"${{ github.repository }}:${{ matrix.environment }}-${{ github.sha }}\",
+              \"environment\": [{
+                \"name\": \"ENVIRONMENT\",
+                \"value\": \"${{ matrix.environment }}\"
+              }]
+            }]"
+          
+          aws ecs update-service \
+            --cluster ${{ matrix.environment }}-cluster \
+            --service myapp-service \
+            --task-definition myapp-${{ matrix.environment }}
+          
+          echo "url=https://${{ matrix.environment }}.example.com" >> $GITHUB_OUTPUT
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: Deployment to ${{ matrix.environment }} ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+  verify:
+    name: Verify Deployment
+    needs: deploy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [staging, production]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          npm run test:smoke -- --url https://${{ matrix.environment }}.example.com
+
+      - name: Run E2E tests
+        uses: cypress-io/github-action@v5
+        with:
+          config: baseUrl=https://${{ matrix.environment }}.example.com
+          record: true
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+
+      - name: Performance test
+        run: |
+          npm install -g @sitespeed.io/sitespeed.io
+          sitespeed.io https://${{ matrix.environment }}.example.com \
+            --budget.configPath=.sitespeed.io/budget.json \
+            --plugins.add=@sitespeed.io/plugin-lighthouse
+
+      - name: Security scan
+        run: |
+          npm install -g @zaproxy/action-baseline
+          zaproxy/action-baseline -t https://${{ matrix.environment }}.example.com
