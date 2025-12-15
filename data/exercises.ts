@@ -169,5 +169,21 @@ export const EXERCISE_DB: Exercise[] = [
     videoContext: "Notice the stretch at the bottom and the elbow drive towards the hip.",
     equipmentList: ["Dumbbell", "Bench"],
     calories: 30
+  },
+  {
+    id: 'yt-test',
+    name: 'YouTube Test',
+    muscle: 'Test',
+    equipment: 'None',
+    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800&auto=format&fit=crop',
+    video: 'https://www.youtube.com/watch?v=wm47Swzn_98',
+    overview: 'YouTube test exercise used for automated playback tests. Contains an embedded YouTube link.',
+    benefits: ["Test media embedding", "Diagnostics for iframe messaging"],
+    steps: ["Open the exercise modal and verify iframe mounts.", "Toggle debug overlay and verify iframeReady or iframeState is reported."],
+    bpm: 0,
+    difficulty: 'Beginner',
+    videoContext: "This entry exists solely for automated playback tests.",
+    equipmentList: [],
+    calories: 0
   }
 ];

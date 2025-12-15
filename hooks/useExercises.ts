@@ -8,6 +8,29 @@ const CACHE_MAX_AGE = 1000 * 60 * 60 * 24; // 24h
 function mergeLocalAndRemote(local: Exercise[], remote: Partial<Exercise>[] = []) {
   const byName = new Map<string, Exercise>();
   for (const l of local) byName.set(l.name, l);
+
+  // Helper: normalize video URLs — convert YouTube watch/embed/short links to canonical embed URL
+  function normalizeVideoUrl(raw?: string): string | undefined {
+    if (!raw) return undefined;
+    try {
+      const url = raw.trim();
+      // YouTube short link youtu.be/ID
+      let m = url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/i);
+      if (m && m[1]) return `https://www.youtube.com/embed/${m[1]}`;
+      // watch?v=ID or watch?v=ID&... or &t= -> extract v
+      m = url.match(/[?&]v=([A-Za-z0-9_-]{11})/i);
+      if (m && m[1]) return `https://www.youtube.com/embed/${m[1]}`;
+      // embed/ID
+      m = url.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/i);
+      if (m && m[1]) return `https://www.youtube.com/embed/${m[1]}`;
+      // If it's already an MP4 or other direct file, return as-is
+      if (/\.(mp4|webm|ogg)(?:\?|$)/i.test(url)) return url;
+      // Unknown or unsupported provider: return original to preserve value
+      return url;
+    } catch {
+      return raw;
+    }
+  }
   for (const r of remote) {
     if (!r.name) continue;
     if (!byName.has(r.name)) {
@@ -17,7 +40,7 @@ function mergeLocalAndRemote(local: Exercise[], remote: Partial<Exercise>[] = []
         muscle: (r.muscle as string) ?? 'General',
         equipment: (r.equipment as string) ?? 'None',
         image: (r.image as string) ?? '',
-        video: (r.video as string) ?? undefined,
+      video: normalizeVideoUrl((r.video as string) ?? undefined),
         overview: (r.overview as string) ?? '',
         steps: (r.steps as string[]) ?? [],
         benefits: (r.benefits as string[]) ?? [],

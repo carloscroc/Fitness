@@ -60,6 +60,15 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   const [duration, setDuration] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showAddOptions, setShowAddOptions] = useState(true);
+    const [videoError, setVideoError] = useState(false);
+
+    // YouTube iframe diagnostic and control state
+    const [iframeLoaded, setIframeLoaded] = useState(false);
+    const [iframeReady, setIframeReady] = useState(false);
+    const [iframeState, setIframeState] = useState<number | null>(null);
+    const [iframeTimeout, setIframeTimeout] = useState(false);
+    const [showDebug, setShowDebug] = useState<boolean>(() => !!(typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('video-debug')));
+    const iframeTimeoutRef = useRef<number | null>(null);
   
   // Scheduling State
   const [isScheduling, setIsScheduling] = useState(false);
@@ -71,6 +80,13 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   const progressBarRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Compute an effective video URL (explicit video first, then try to extract YouTube links from text)
+  const extractedFromOverview = extractYouTubeUrlFromText(exercise.overview);
+  const extractedFromDescription = extractYouTubeUrlFromText(exercise.description);
+  const effectiveVideoUrl = exercise.video ?? extractedFromOverview ?? extractedFromDescription;
+  const ytId = getYouTubeId(effectiveVideoUrl);
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -79,6 +95,82 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
   }, []);
+
+  // Keep iframe/player state in sync: when isPlaying changes, send play/pause to YouTube iframe
+  useEffect(() => {
+    if (iframeRef.current) {
+      if (isPlaying) postYouTubeCommand('playVideo');
+      else postYouTubeCommand('pauseVideo');
+    }
+  }, [isPlaying]);
+
+  // Listen for messages from the YouTube iframe (onReady, onStateChange)
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      let data: any = ev.data;
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch { /* ignore */ }
+      }
+      if (!data || typeof data !== 'object') return;
+
+      if (data.event === 'onReady') {
+        setIframeReady(true);
+        setIframeTimeout(false);
+        if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+        // Helpful debug log for automated tests
+        try { if (typeof navigator !== 'undefined' && (navigator as any).webdriver) console.log('YT:onReady'); } catch {}
+      }
+
+      if (data.event === 'onStateChange') {
+        const info = 'info' in data ? data.info : (data.data ?? null);
+        setIframeState(typeof info === 'number' ? info : null);
+        // Helpful debug log for automated tests
+        try { if (typeof navigator !== 'undefined' && (navigator as any).webdriver) console.log(`YT:onStateChange: ${info}`); } catch {}
+        if (info === 1) { // playing
+          setIframeTimeout(false);
+          if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+        }
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+    };
+  }, []);
+
+  // On unmount, ensure media is paused so playback doesn't continue in background
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        try { videoRef.current.pause(); } catch {}
+      }
+      if (iframeRef.current) {
+        postYouTubeCommand('pauseVideo');
+      }
+      if (iframeTimeoutRef.current) {
+        window.clearTimeout(iframeTimeoutRef.current);
+        iframeTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // If the iframe times out (didn't report ready), attempt a muted-autoplay fallback by reloading the iframe with autoplay and mute params
+  useEffect(() => {
+    if (iframeTimeout && iframeRef.current) {
+      const yt = getYouTubeId(effectiveVideoUrl);
+      if (!yt) return;
+      const fallbackSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1`;
+      try {
+        iframeRef.current.src = fallbackSrc;
+      } catch (e) {
+        // ignore
+      }
+      // clear the timeout flag after attempting the fallback to avoid repeated reloads
+      setTimeout(() => setIframeTimeout(false), 3000);
+    }
+  }, [iframeTimeout, effectiveVideoUrl]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -118,8 +210,19 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
       }
   };
 
+  const postYouTubeCommand = (cmd: string, args: any[] = []) => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      try {
+          win.postMessage(JSON.stringify({ event: 'command', func: cmd, args }), '*');
+      } catch (e) {
+          // ignore
+      }
+  };
+
   const togglePlay = (e?: React.MouseEvent) => {
       e?.stopPropagation();
+
       // If native video is mounted, control it directly as a user gesture to avoid autoplay blocks
       if (videoRef.current) {
           if (isPlaying) {
@@ -146,7 +249,31 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
           return;
       }
 
-      // Fallback: toggle playing state (used for iframe embeds)
+      // If an iframe-embedded YouTube is present, send play/pause via postMessage (keeps it inside user gesture)
+      if (iframeRef.current) {
+          if (isPlaying) {
+              postYouTubeCommand('pauseVideo');
+              setIsPlaying(false);
+          } else {
+              // If iframe hasn't signaled it's ready, set a timeout to mark it as timed out
+              if (!iframeReady) {
+                  setIframeTimeout(false);
+                  if (iframeTimeoutRef.current) window.clearTimeout(iframeTimeoutRef.current);
+                  iframeTimeoutRef.current = window.setTimeout(() => {
+                      setIframeTimeout(true);
+                      iframeTimeoutRef.current = null;
+                  }, 4000);
+              }
+
+              // Try to unmute then play (keeps within user gesture)
+              postYouTubeCommand('unMute');
+              postYouTubeCommand('playVideo');
+              setIsPlaying(true);
+          }
+          return;
+      }
+
+      // Fallback: toggle playing state
       setIsPlaying(!isPlaying);
   };
 
@@ -178,21 +305,17 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   const handlePrevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-    // New: compute an effective video URL (explicit video first, then try to extract YouTube links from text)
-    const extractedFromOverview = extractYouTubeUrlFromText(exercise.overview);
-    const extractedFromDescription = extractYouTubeUrlFromText(exercise.description);
-    const effectiveVideoUrl = exercise.video ?? extractedFromOverview ?? extractedFromDescription;
+    
   return createPortal(
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[200] flex items-end md:items-center justify-center"
     >
       <div className="absolute inset-0 bg-black/95 backdrop-blur-xl pointer-events-auto" onClick={onClose} />
-      
-      <motion.div 
+
+      <motion.div
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
@@ -211,12 +334,13 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                          (() => {
                              const yt = getYouTubeId(effectiveVideoUrl);
                              if (yt) {
-                                const base = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1`;
-                                const src = isPlaying ? `${base}&autoplay=1&mute=1` : `${base}&autoplay=0`;
+                                const src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
                                  return (
                                      <iframe
-                                         title={exercise.name}
-                                         src={src}
+                                        ref={iframeRef}
+                                        title={exercise.name}
+                                        src={src}
+                                        onLoad={() => setIframeLoaded(true)}
                                          className="w-full h-full object-cover"
                                          frameBorder="0"
                                          allow="autoplay; encrypted-media; clipboard-write; gyroscope; picture-in-picture; web-share"
@@ -227,6 +351,10 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
                             const isFile = /\.(mp4|webm|ogg)(?:\?|$)/i.test(effectiveVideoUrl);
                             if (isFile) {
+                                if (videoError) {
+                                    return <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
+                                }
+
                                 return (
                                     <video 
                                         ref={videoRef}
@@ -241,6 +369,17 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                                         }}
                                         onTimeUpdate={handleTimeUpdate}
                                         onEnded={() => setIsPlaying(false)}
+                                        onError={() => {
+                                            // Network or format error (e.g. 403 hotlink) — fall back to image
+                                            // eslint-disable-next-line no-console
+                                            console.error('Video failed to load', effectiveVideoUrl);
+                                            setVideoError(true);
+                                            setIsPlaying(false);
+                                        }}
+                                        onCanPlay={() => {
+                                            // Clear any previous error once the source is playable
+                                            if (videoError) setVideoError(false);
+                                        }}
                                     />
                                 );
                             }
@@ -251,21 +390,36 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                      ) : (
                          <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />
                      )}
-           
+
+           {/* Debug Overlay */}
+           {showDebug && (
+             <div className="absolute top-4 right-4 bg-black/60 text-xs text-white p-3 rounded-md z-40 pointer-events-auto max-w-xs">
+               <div className="font-bold mb-1">Video Debug</div>
+               <div className="text-[12px] leading-tight">
+                 <div><strong>ytId:</strong> {ytId ?? '—'}</div>
+                 <div><strong>iframeLoaded:</strong> {String(iframeLoaded)}</div>
+                 <div><strong>iframeReady:</strong> {String(iframeReady)}</div>
+                 <div><strong>iframeState:</strong> {String(iframeState)}</div>
+                 <div><strong>iframeTimeout:</strong> {String(iframeTimeout)}</div>
+                 <div className="truncate"><strong>src:</strong> {iframeRef.current?.src ?? (ytId ? `https://www.youtube.com/watch?v=${ytId}` : '—')}</div>
+               </div>
+             </div>
+           )}
+
            {/* Dynamic Overlays */}
-           <motion.div 
+           <motion.div
              animate={{ opacity: isPlaying ? 0 : 1 }}
              transition={{ duration: 0.3 }}
              className="absolute inset-0 pointer-events-none bg-black/30"
            />
-           <motion.div 
+           <motion.div
              animate={{ opacity: isPlaying ? 0 : 1 }}
              transition={{ duration: 0.3 }}
              className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/60 via-transparent to-black/80"
            />
 
            {/* Controls Layer */}
-           <motion.div 
+           <motion.div
              animate={{ opacity: isPlaying ? 0 : 1 }}
              transition={{ duration: 0.2 }}
              className="absolute inset-0 flex flex-col justify-between p-6 z-20 pointer-events-none"
@@ -283,8 +437,33 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                     <div className="h-10 px-4 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-[10px] font-bold text-white uppercase tracking-wider">
                         {exercise.equipment?.toUpperCase() || 'BODYWEIGHT'}
                     </div>
-                     <button 
-                      onClick={onClose} 
+
+                    {ytId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank', 'noopener'); }}
+                        className="h-10 px-3 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-[11px] font-bold text-white hover:bg-white/10 transition-colors"
+                      >
+                        Open
+                      </button>
+                    )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const next = !showDebug;
+                        setShowDebug(next);
+                        if (typeof window !== 'undefined' && window.localStorage) {
+                          if (next) window.localStorage.setItem('video-debug', '1');
+                          else window.localStorage.removeItem('video-debug');
+                        }
+                      }}
+                      className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-zinc-300 hover:text-white transition-colors border border-white/10"
+                    >
+                      <Film size={16} />
+                    </button>
+
+                     <button
+                      onClick={onClose}
                       className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl flex items-center justify-center text-white hover:bg-white/10 transition-colors border border-white/10"
                     >
                       <X size={18} />
