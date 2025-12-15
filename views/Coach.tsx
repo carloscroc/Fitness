@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button.tsx';
 import { Vision } from './Vision.tsx';
 import { EXERCISE_DB, EXERCISE_CATEGORIES, Exercise } from '../data/exercises.ts';
 import { ExerciseDetailModal } from '../components/ExerciseDetailModal.tsx';
+import VideoPreview from '../components/VideoPreview.tsx';
 
 type Tab = 'Library' | 'Body' | 'History';
 
@@ -254,7 +255,7 @@ export const Coach: React.FC<CoachProps> = ({ initialTab, initialExerciseId, onL
                 onClick={() => setSelectedExercise(ex)}
                 className="aspect-square relative bg-[#1C1C1E] rounded-[32px] overflow-hidden active:scale-[0.98] transition-transform cursor-pointer group border border-white/15"
               >
-                 <img src={ex.image} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" loading="lazy" />
+                 <VideoPreview exercise={ex} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
                  
                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
