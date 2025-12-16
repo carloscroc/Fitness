@@ -1,0 +1,12 @@
+{
+  "enabledPlugins": {
+    "backend-development@claude-code-workflows": true,
+    "context7@claude-plugins-official": true,
+    "error-debugging@claude-code-workflows": true,
+    "framework-migration@claude-code-workflows": true,
+    "playwright@claude-plugins-official": true,
+    "agent-orchestration@claude-code-workflows": true,
+    "commit-commands@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true
+  }
+}
