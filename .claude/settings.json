@@ -7,6 +7,13 @@
     "playwright@claude-plugins-official": true,
     "agent-orchestration@claude-code-workflows": true,
     "commit-commands@claude-plugins-official": true,
-    "supabase@claude-plugins-official": true
+    "supabase@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-review-ai@claude-code-workflows": true,
+    "frontend-design@claude-plugins-official": true,
+    "accessibility-compliance@claude-code-workflows": true,
+    "github@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "documentation-generation@claude-code-workflows": true
   }
 }
