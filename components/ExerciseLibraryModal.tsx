@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, ChevronRight, Filter, Plus, Edit2, Check } from 'lucide-react';
+import { X, Search, ChevronRight, Filter, Plus, Edit2, Check, Database, Zap } from 'lucide-react';
 import { EXERCISE_CATEGORIES, Exercise } from '../data/exercises.ts';
-import { useExercises } from '../hooks/useExercises';
+import { useExercises, useBaseExercises } from '../hooks/useExercises';
 import { ExerciseDetailModal } from './ExerciseDetailModal.tsx';
 import { Button } from './ui/Button.tsx';
+import { ExerciseWithSource } from '../types/exercise';
+import { isFeatureEnabled } from '../services/featureFlags';
 
 interface ExerciseLibraryModalProps {
   isOpen: boolean;
@@ -17,30 +19,42 @@ interface ExerciseLibraryModalProps {
   multiSelect?: boolean;
 }
 
-export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({ 
-  isOpen, onClose, onSelect, onMultiSelect, mode = 'view', multiSelect = false 
+export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
+  isOpen, onClose, onSelect, onMultiSelect, mode = 'view', multiSelect = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const { exercises: ALL_EXERCISES, loading } = useExercises();
+  const [pendingAutoPlay, setPendingAutoPlay] = useState<boolean>(false);
+
+  // Use the enhanced hook for migration support, but maintain compatibility with Exercise type
+  const { exercises: ALL_EXERCISES_WITH_SOURCE, loading, migrationStats } = useExercises();
+
+  // Check if we should show data source indicators (development only)
+  const showDataIndicators = isFeatureEnabled('SHOW_DATA_SOURCE_INDICATORS', false);
+
+  // Convert ExerciseWithSource to Exercise for backward compatibility
+  const ALL_EXERCISES: Exercise[] = ALL_EXERCISES_WITH_SOURCE.map((ex: any) => {
+    const { dataSource, quality, matchInfo, libraryId, category, primaryMuscle, secondaryMuscles, instructions, metadata, isOriginal, migratedAt, version, ...exercise } = ex;
+    return exercise;
+  });
   
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // `ALL_EXERCISES` is provided by the hook (local+remote merged)
-  const filteredExercises = ALL_EXERCISES.filter(ex => {
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  // Filter exercises based on search and category
+  const filteredExercises = ALL_EXERCISES_WITH_SOURCE.filter(ex => {
+    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (ex.muscle || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = activeCategory === 'All' || (ex.muscle === activeCategory);
     return matchesSearch && matchesCategory;
   });
 
-  const handleExerciseClick = (ex: Exercise) => {
+  const handleExerciseClick = (ex: Exercise | ExerciseWithSource) => {
     if (multiSelect) {
-        setSelectedIds(prev => 
-            prev.includes(ex.id) 
-            ? prev.filter(id => id !== ex.id) 
+        setSelectedIds(prev =>
+            prev.includes(ex.id)
+            ? prev.filter(id => id !== ex.id)
             : [...prev, ex.id]
         );
     } else if (mode === 'select' && onSelect) {
@@ -48,12 +62,43 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
       onClose();
     } else {
       setSelectedExercise(ex);
+      // mark that this open came from a direct user click so the modal may attempt autoplay
+      setPendingAutoPlay(true);
     }
+  };
+
+  // Component for data source indicator (development only)
+  const DataSourceIndicator = ({ exercise }: { exercise: ExerciseWithSource }) => {
+    if (!showDataIndicators) return null;
+
+    const isFrontend = exercise.dataSource === 'frontend';
+    const isOriginal = exercise.isOriginal;
+
+    return (
+      <div className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-black/50 border border-white/10">
+        {isOriginal ? (
+          <>
+            <Zap size={10} className="text-yellow-400" />
+            <span className="text-yellow-400">ORIGINAL</span>
+          </>
+        ) : isFrontend ? (
+          <>
+            <Database size={10} className="text-blue-400" />
+            <span className="text-blue-400">FRONTEND</span>
+          </>
+        ) : (
+          <>
+            <Database size={10} className="text-green-400" />
+            <span className="text-green-400">BACKEND</span>
+          </>
+        )}
+      </div>
+    );
   };
 
   const handleConfirmMultiSelect = () => {
       if (onMultiSelect) {
-        const selectedExercises = ALL_EXERCISES.filter(ex => selectedIds.includes(ex.id));
+        const selectedExercises = ALL_EXERCISES_WITH_SOURCE.filter(ex => selectedIds.includes(ex.id));
         onMultiSelect(selectedExercises);
           onClose();
           // Reset selection after confirming
@@ -106,13 +151,41 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
               <h2 className="text-2xl font-bold font-display text-white">
                   {mode === 'select' ? (multiSelect ? 'Select Exercises' : 'Select Exercise') : 'Exercise Library'}
               </h2>
-              <button 
+              <button
                 onClick={onClose}
                 className="w-10 h-10 rounded-full bg-[#1C1C1E] flex items-center justify-center text-white border border-white/10 active:scale-95 transition-transform"
               >
                 <X size={20} />
               </button>
             </div>
+
+            {/* Migration Stats (Development Only) */}
+            {showDataIndicators && migrationStats && (
+              <div className="mb-4 p-3 rounded-[12px] bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4">
+                    <span className="text-blue-400 font-medium">
+                      🏋️ {migrationStats.totalMergedExercises} exercises
+                    </span>
+                    <span className="text-zinc-400">
+                      {migrationStats.totalFrontendExercises} frontend + {migrationStats.totalBackendExercises} backend
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {migrationStats.dataCompleteness.complete > 0 && (
+                      <span className="text-green-400">
+                        {migrationStats.dataCompleteness.complete} complete
+                      </span>
+                    )}
+                    {migrationStats.dataCompleteness.withVideo > 0 && (
+                      <span className="text-blue-400">
+                        {migrationStats.dataCompleteness.withVideo} videos
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Search */}
             <div className="relative mb-4">
@@ -172,9 +245,12 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
                                     </div>
                                 )}
                             </div>
-                            
+
                             <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">{ex.muscle}</div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{ex.muscle}</div>
+                                    <DataSourceIndicator exercise={ex as ExerciseWithSource} />
+                                </div>
                                 <h3 className={`text-[17px] font-bold font-display truncate leading-tight ${isSelected ? 'text-blue-400' : 'text-white'}`}>{ex.name}</h3>
                             </div>
                         </div>
@@ -231,7 +307,8 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
           {selectedExercise && (
              <ExerciseDetailModal 
                exercise={selectedExercise} 
-               onClose={() => setSelectedExercise(null)}
+               autoPlay={pendingAutoPlay}
+               onClose={() => { setSelectedExercise(null); setPendingAutoPlay(false); }}
                onAddToWorkout={
                    mode === 'select' && onSelect && !multiSelect
                    ? () => { onSelect(selectedExercise); onClose(); } 

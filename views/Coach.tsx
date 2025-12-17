@@ -253,6 +253,9 @@ export const Coach: React.FC<CoachProps> = ({ initialTab, initialExerciseId, onL
                 key={ex.id} 
                 layoutId={`lib-${ex.id}`}
                 onClick={() => setSelectedExercise(ex)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedExercise(ex); } }}
+                tabIndex={0}
+                role="button"
                 className="aspect-square relative bg-[#1C1C1E] rounded-[32px] overflow-hidden active:scale-[0.98] transition-transform cursor-pointer group border border-white/15"
               >
                  <VideoPreview exercise={ex} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />

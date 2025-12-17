@@ -2,14 +2,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Pause, ChevronLeft, ChevronRight, Calendar, Dumbbell, Layers, Maximize2, Minimize2, Zap, Film } from 'lucide-react';
+import { X, Play, Pause, ChevronLeft, ChevronRight, Calendar, Dumbbell, Layers, Maximize2, Minimize2, Zap, Film, AlertCircle, Database } from 'lucide-react';
 import { Exercise } from '../data/exercises.ts';
+import { ExerciseWithSource } from '../types/exercise.ts';
+import { isFeatureEnabled } from '../services/featureFlags';
 import { Button } from './ui/Button.tsx';
 
 interface ExerciseDetailModalProps {
-  exercise: Exercise;
+  exercise: Exercise | ExerciseWithSource;
   onClose: () => void;
   onAddToWorkout?: (action?: 'SCHEDULE' | 'START', date?: string) => void;
+  autoPlay?: boolean;
 }
 
 // Helper: robustly detect YouTube video ID from common YouTube URL formats
@@ -51,9 +54,96 @@ function extractYouTubeUrlFromText(text?: string): string | undefined {
     return undefined;
 }
 
-export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({ 
-  exercise, onClose, onAddToWorkout 
+// Utility function to check if exercise has missing critical data
+function hasMissingData(exercise: Exercise | ExerciseWithSource): { hasMissing: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+
+  if (!exercise.video) missingFields.push('video');
+  if (!exercise.steps || exercise.steps.length === 0) missingFields.push('steps');
+  if (!exercise.benefits || exercise.benefits.length === 0) missingFields.push('benefits');
+  if (!exercise.image) missingFields.push('image');
+  if (!exercise.overview) missingFields.push('overview');
+
+  return {
+    hasMissing: missingFields.length > 0,
+    missingFields
+  };
+}
+
+// Component to show missing data warning
+const MissingDataWarning = ({ missingFields }: { missingFields: string[] }) => {
+  if (missingFields.length === 0) return null;
+
+  return (
+    <div className="mx-5 mt-4 p-3 rounded-[12px] bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-3">
+      <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+      <div className="flex-1">
+        <p className="text-yellow-400 text-xs font-medium mb-1">Limited Data Available</p>
+        <p className="text-zinc-400 text-[10px]">
+          This exercise is missing: {missingFields.join(', ').toLowerCase()}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// Fallback image for exercises without images
+const getFallbackImage = (exerciseName: string): string => {
+  // Use unsplash fitness images as fallbacks
+  const fallbackImages = [
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=800&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=800&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=800&auto=format&fit=crop'
+  ];
+
+  // Use a simple hash to select a consistent fallback image
+  const hash = exerciseName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return fallbackImages[hash % fallbackImages.length];
+};
+
+// Component for data source indicator (development only)
+const DataSourceIndicator = ({ exercise }: { exercise: ExerciseWithSource }) => {
+  const showDataIndicators = isFeatureEnabled('SHOW_DATA_SOURCE_INDICATORS', false);
+  if (!showDataIndicators) return null;
+
+  const isFrontend = exercise.dataSource === 'frontend';
+  const isOriginal = exercise.isOriginal;
+
+  return (
+    <div className="mx-5 mt-4 flex items-center gap-2">
+      <div className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-medium bg-black/50 border border-white/10">
+        {isOriginal ? (
+          <>
+            <Zap size={10} className="text-yellow-400" />
+            <span className="text-yellow-400">ORIGINAL</span>
+          </>
+        ) : isFrontend ? (
+          <>
+            <Database size={10} className="text-blue-400" />
+            <span className="text-blue-400">FRONTEND</span>
+          </>
+        ) : (
+          <>
+            <Database size={10} className="text-green-400" />
+            <span className="text-green-400">BACKEND</span>
+          </>
+        )}
+      </div>
+      {exercise.quality && (
+        <div className="text-[10px] text-zinc-500">
+          {exercise.quality.completeness}% complete
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
+  exercise, onClose, onAddToWorkout, autoPlay
 }) => {
+  // Check for missing data
+  const { hasMissing, missingFields } = hasMissingData(exercise);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -81,12 +171,16 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const autoPlayRef = useRef<boolean>(false);
 
   // Compute an effective video URL (explicit video first, then try to extract YouTube links from text)
   const extractedFromOverview = extractYouTubeUrlFromText(exercise.overview);
   const extractedFromDescription = extractYouTubeUrlFromText(exercise.description);
   const effectiveVideoUrl = exercise.video ?? extractedFromOverview ?? extractedFromDescription;
   const ytId = getYouTubeId(effectiveVideoUrl);
+
+  // Get fallback image for when exercise.image is missing
+  const exerciseImage = exercise.image || getFallbackImage(exercise.name);
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -106,7 +200,27 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
   // Listen for messages from the YouTube iframe (onReady, onStateChange)
   useEffect(() => {
+    const allowedOrigins = new Set([
+      'https://www.youtube.com',
+      'https://www.youtube-nocookie.com'
+    ]);
+
     const onMessage = (ev: MessageEvent) => {
+      // Validate origin: accept messages from YouTube origins or from the current iframe src origin
+      try {
+        const origin = ev.origin;
+        const iframeSrc = iframeRef.current?.src;
+        const iframeOrigin = iframeSrc ? new URL(iframeSrc).origin : null;
+        if (origin && iframeOrigin && origin !== iframeOrigin && !allowedOrigins.has(origin)) {
+          return; // ignore unrelated messages
+        }
+        if (origin && !iframeOrigin && !allowedOrigins.has(origin)) {
+          return;
+        }
+      } catch (e) {
+        // If anything goes wrong parsing origins, fall back to strict behavior and continue parsing payload
+      }
+
       let data: any = ev.data;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); } catch { /* ignore */ }
@@ -172,6 +286,20 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     }
   }, [iframeTimeout, effectiveVideoUrl]);
 
+  // Attempt to trigger playback once when the modal is opened via a direct click from the library.
+  // This may fall back to the modal's existing muted-autoplay reload logic if the browser blocks autoplay.
+  useEffect(() => {
+    if (autoPlay && !autoPlayRef.current) {
+      autoPlayRef.current = true;
+      try {
+        // Call togglePlay immediately to keep the action within the user gesture where possible
+        togglePlay();
+      } catch (e) {
+        // ignore any errors from attempting to play
+      }
+    }
+  }, [autoPlay]);
+
   useEffect(() => {
     if (videoRef.current) {
         if (isPlaying) {
@@ -214,9 +342,17 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
       const win = iframeRef.current?.contentWindow;
       if (!win) return;
       try {
-          win.postMessage(JSON.stringify({ event: 'command', func: cmd, args }), '*');
+        // Prefer posting to the iframe's origin when possible for stricter messaging
+        let targetOrigin = '*';
+        try {
+        const src = iframeRef.current?.src;
+        if (src) targetOrigin = new URL(src).origin;
+        } catch (e) {
+        // fallback to wildcard
+        }
+        win.postMessage(JSON.stringify({ event: 'command', func: cmd, args }), targetOrigin);
       } catch (e) {
-          // ignore
+        // ignore
       }
   };
 
@@ -256,19 +392,38 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
               setIsPlaying(false);
           } else {
               // If iframe hasn't signaled it's ready, set a timeout to mark it as timed out
-              if (!iframeReady) {
-                  setIframeTimeout(false);
-                  if (iframeTimeoutRef.current) window.clearTimeout(iframeTimeoutRef.current);
-                  iframeTimeoutRef.current = window.setTimeout(() => {
-                      setIframeTimeout(true);
-                      iframeTimeoutRef.current = null;
-                  }, 4000);
-              }
+                if (!iframeReady) {
+                    // Immediately attempt an autoplay+mute reload to satisfy browsers that require
+                    // a user-gesture-initiated navigation for autoplay on cross-origin iframes.
+                    try {
+                      const yt = getYouTubeId(effectiveVideoUrl);
+                      if (yt && iframeRef.current) {
+                        const fallbackSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1`;
+                        // Set src to trigger the player to start immediately under the user gesture
+                        iframeRef.current.src = fallbackSrc;
+                        setIframeLoaded(true);
+                        setIframeTimeout(false);
+                        if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+                        setIsPlaying(true);
+                        return;
+                      }
+                    } catch (e) {
+                      // ignore and fall back to messaging below
+                    }
 
-              // Try to unmute then play (keeps within user gesture)
-              postYouTubeCommand('unMute');
-              postYouTubeCommand('playVideo');
-              setIsPlaying(true);
+                    setIframeTimeout(false);
+                    if (iframeTimeoutRef.current) window.clearTimeout(iframeTimeoutRef.current);
+                    // Keep the longer timeout as a safety net
+                    iframeTimeoutRef.current = window.setTimeout(() => {
+                        setIframeTimeout(true);
+                        iframeTimeoutRef.current = null;
+                    }, 8000);
+                }
+
+                // Try to unmute then play (keeps within user gesture)
+                postYouTubeCommand('unMute');
+                postYouTubeCommand('playVideo');
+                setIsPlaying(true);
           }
           return;
       }
@@ -352,43 +507,44 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                             const isFile = /\.(mp4|webm|ogg)(?:\?|$)/i.test(effectiveVideoUrl);
                             if (isFile) {
                                 if (videoError) {
-                                    return <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
+                                    return <img src={exerciseImage} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
                                 }
 
                                 return (
-                                    <video 
-                                        ref={videoRef}
-                                        src={effectiveVideoUrl}
-                                        className="w-full h-full object-cover"
-                                        playsInline
-                                        controls
-                                        loop
-                                        crossOrigin="anonymous"
-                                        onLoadedMetadata={() => {
-                                            if (videoRef.current) setDuration(videoRef.current.duration);
-                                        }}
-                                        onTimeUpdate={handleTimeUpdate}
-                                        onEnded={() => setIsPlaying(false)}
-                                        onError={() => {
-                                            // Network or format error (e.g. 403 hotlink) — fall back to image
-                                            // eslint-disable-next-line no-console
-                                            console.error('Video failed to load', effectiveVideoUrl);
-                                            setVideoError(true);
-                                            setIsPlaying(false);
-                                        }}
-                                        onCanPlay={() => {
-                                            // Clear any previous error once the source is playable
-                                            if (videoError) setVideoError(false);
-                                        }}
-                                    />
+                                  <video 
+                                    ref={videoRef}
+                                    src={effectiveVideoUrl}
+                                    poster={exerciseImage}
+                                    preload="metadata"
+                                    className="w-full h-full object-cover"
+                                    playsInline
+                                    controls
+                                    loop
+                                    onLoadedMetadata={() => {
+                                      if (videoRef.current) setDuration(videoRef.current.duration);
+                                    }}
+                                    onTimeUpdate={handleTimeUpdate}
+                                    onEnded={() => setIsPlaying(false)}
+                                    onError={() => {
+                                      // Network or format error (e.g. 403 hotlink) — fall back to image
+                                      // eslint-disable-next-line no-console
+                                      console.error('Video failed to load', effectiveVideoUrl);
+                                      setVideoError(true);
+                                      setIsPlaying(false);
+                                    }}
+                                    onCanPlay={() => {
+                                      // Clear any previous error once the source is playable
+                                      if (videoError) setVideoError(false);
+                                    }}
+                                  />
                                 );
                             }
 
                              // Unknown remote URL: fall back to image preview
-                             return <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
+                             return <img src={exerciseImage} className="w-full h-full object-cover opacity-90" alt={exercise.name} />;
                          })()
                      ) : (
-                         <img src={exercise.image} className="w-full h-full object-cover opacity-90" alt={exercise.name} />
+                         <img src={exerciseImage} className="w-full h-full object-cover opacity-90" alt={exercise.name} />
                      )}
 
            {/* Debug Overlay */}
@@ -488,13 +644,19 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
               {/* Bottom Interface */}
               <div className="mt-auto pointer-events-auto" onClick={(e) => e.stopPropagation()}>
                  <div className="mb-6">
-                    <motion.h1 
+                    <motion.h1
                       layoutId={`title-${exercise.id}`}
                       className="text-4xl font-bold font-display text-white leading-[0.9] drop-shadow-xl"
                     >
                         {exercise.name}
                     </motion.h1>
                  </div>
+
+                 {/* Missing Data Warning */}
+                 <MissingDataWarning missingFields={missingFields} />
+
+                 {/* Data Source Indicator (Development Only) */}
+                 <DataSourceIndicator exercise={exercise as ExerciseWithSource} />
 
                  {/* Custom Scrubber */}
                  <div className="flex items-center gap-4 bg-[#1C1C1E]/80 backdrop-blur-xl p-2 rounded-full border border-white/10 shadow-xl">
@@ -578,7 +740,10 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                                 </p>
                            </div>
                        )) : (
-                         <p className="text-zinc-500 text-sm italic pl-8">Standard form applies.</p>
+                         <div className="text-zinc-500 text-sm pl-8 space-y-2">
+                           <p className="italic">Detailed steps not available for this exercise.</p>
+                           <p className="text-xs">Please refer to the video demonstration or consult with a fitness professional for proper form.</p>
+                         </div>
                        )}
                    </div>
                </div>

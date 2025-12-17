@@ -12,11 +12,18 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'import.meta.env': JSON.stringify(env)
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(__dirname, './src'),
+          '@components': path.resolve(__dirname, './components'),
+          '@services': path.resolve(__dirname, './services'),
+          '@hooks': path.resolve(__dirname, './hooks'),
+          '@types': path.resolve(__dirname, './types'),
+          '@config': path.resolve(__dirname, './config'),
+          '@data': path.resolve(__dirname, './data')
         }
       }
     };

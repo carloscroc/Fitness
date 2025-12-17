@@ -49,6 +49,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ exercise, className 
         frameBorder="0"
         allow="autoplay; encrypted-media; picture-in-picture"
         allowFullScreen
+        // Make preview iframe non-interactive so parent card click opens modal
+        style={{ pointerEvents: 'none' }}
+        aria-hidden="true"
+        tabIndex={-1}
       />
     );
   }
