@@ -23,11 +23,20 @@ export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders',
 
 // Sample high-quality fitness stock videos
 const VIDEOS = {
-  SQUAT: "https://videos.pexels.com/video-files/4761426/4761426-hd_1080_1920_25fps.mp4", // Woman squatting
-  BENCH: "https://videos.pexels.com/video-files/5319759/5319759-hd_1080_1920_25fps.mp4", // Bench Press / Chest
-  DEADLIFT: "https://videos.pexels.com/video-files/8477764/8477764-hd_1080_1920_25fps.mp4", // Deadlift variant
-  PULLUP: "https://videos.pexels.com/video-files/4761732/4761732-hd_1080_1920_25fps.mp4", // Pull workout
-  RUN: "https://videos.pexels.com/video-files/3763321/3763321-hd_1080_1920_25fps.mp4" // Cardio
+  // Temporarily disabled due to Pexels hotlinking restrictions
+  // These URLs cannot be embedded directly due to CORS policy
+  // SQUAT: "https://videos.pexels.com/video-files/4761426/4761426-hd_1080_1920_25fps.mp4", // Woman squatting
+  // BENCH: "https://videos.pexels.com/video-files/5319759/5319759-hd_1080_1920_25fps.mp4", // Bench Press / Chest
+  // DEADLIFT: "https://videos.pexels.com/video-files/8477764/8477764-hd_1080_1920_25fps.mp4", // Deadlift variant
+  // PULLUP: "https://videos.pexels.com/video-files/4761732/4761732-hd_1080_1920_25fps.mp4", // Pull workout
+  // RUN: "https://videos.pexels.com/video-files/3763321/3763321-hd_1080_1920_25fps.mp4" // Cardio
+
+  // High-quality exercise demonstration videos from YouTube
+  SQUAT: "https://www.youtube.com/watch?v=ultWZbUMPL8", // Squat tutorial
+  BENCH: "https://www.youtube.com/watch?v=rT7DgCr-3pg", // Bench Press tutorial
+  DEADLIFT: "https://www.youtube.com/watch?v=op9kVnSso6Q", // Deadlift tutorial
+  PULLUP: "https://www.youtube.com/watch?v=eGo4IYlbE5g", // Pull Up tutorial
+  RUN: "https://www.youtube.com/watch?v=HMwx-wtnX9M" // Running technique
 };
 
 export const EXERCISE_DB: Exercise[] = [

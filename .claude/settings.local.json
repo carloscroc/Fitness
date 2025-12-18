@@ -5,7 +5,19 @@
       "mcp__filesystem__directory_tree",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run dev)",
+      "Bash(npm run test:e2e:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "Bash(curl:*)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(timeout 30 npx playwright test:*)"
     ]
   }
 }

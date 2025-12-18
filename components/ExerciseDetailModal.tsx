@@ -18,19 +18,32 @@ interface ExerciseDetailModalProps {
 // Helper: robustly detect YouTube video ID from common YouTube URL formats
 function getYouTubeId(url?: string): string | null {
     if (!url) return null;
+    const raw = url.trim();
+    if (!raw) return null;
+
+    // Support passing a raw YouTube video id directly.
+    if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
     try {
         // First try query param `v`
-        const u = new URL(url, 'https://example.com');
+        const u = new URL(raw, 'https://example.com');
         const v = u.searchParams.get('v');
         if (v && v.length >= 8) return v.substring(0, 11);
+
+        // Support common path-based formats like /shorts/<id>, /live/<id>, /embed/<id>, /v/<id>, and youtu.be/<id>
+        const pathMatch = u.pathname.match(/\/(?:shorts|live|embed|v)\/([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i);
+        if (pathMatch?.[1]) return pathMatch[1].length > 11 ? pathMatch[1].slice(0, 11) : pathMatch[1];
+        if (u.hostname.toLowerCase().includes('youtu.be')) {
+            const id = u.pathname.split('/').filter(Boolean)[0];
+            if (id) return id.length > 11 ? id.slice(0, 11) : id;
+        }
     } catch (e) {
         // fall through to regex
     }
 
     try {
         // regex to catch many patterns (watch?v=, youtu.be/, embed/, /v/, shortlinks, extra params)
-        const re = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i;
-        const m = String(url).match(re);
+        const re = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i;
+        const m = String(raw).match(re);
         if (m && m[1]) {
             return m[1].length > 11 ? m[1].slice(0, 11) : m[1];
         }
@@ -44,14 +57,14 @@ function getYouTubeId(url?: string): string | null {
 // Extract a first-found YouTube URL from free text (overview/description)
 function extractYouTubeUrlFromText(text?: string): string | undefined {
     if (!text) return undefined;
-    const urlRe = /(https?:\/\/[\s\S]*?youtube[\s\S]*?|https?:\/\/youtu\.be\/[\s\S]*?)/ig;
-    const match = urlRe.exec(text);
-    if (match && match[0]) return match[0];
-    // also try without protocol (e.g., www.youtube.com/...)
-    const urlRe2 = /(www\.youtube[\s\S]*?|youtu\.be\/[\s\S]*?)/ig;
-    const match2 = urlRe2.exec(text);
-    if (match2 && match2[0]) return `https://${match2[0]}`;
-    return undefined;
+
+    // Match common YouTube URL formats (with or without protocol), stopping at whitespace/quotes.
+    const match = text.match(/\b(?:https?:\/\/)?(?:[\w-]+\.)*(?:youtube(?:-nocookie)?\.com|youtu\.be)\/[^\s<>"']+/i);
+    if (!match?.[0]) return undefined;
+
+    let url = match[0].replace(/[)\]}>.,!?]+$/, '');
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return url;
 }
 
 // Utility function to check if exercise has missing critical data
@@ -157,8 +170,14 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     const [iframeReady, setIframeReady] = useState(false);
     const [iframeState, setIframeState] = useState<number | null>(null);
     const [iframeTimeout, setIframeTimeout] = useState(false);
+    const [iframePlaybackBlocked, setIframePlaybackBlocked] = useState(false);
     const [showDebug, setShowDebug] = useState<boolean>(() => !!(typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('video-debug')));
     const iframeTimeoutRef = useRef<number | null>(null);
+    const iframeOpenFallbackRef = useRef<number | null>(null);
+
+    // iframe src control and remount key - helps force a fresh player when attempting autoplay fallbacks
+    const [iframeSrc, setIframeSrc] = useState<string | null>(null);
+    const [iframeKey, setIframeKey] = useState<number>(0);
   
   // Scheduling State
   const [isScheduling, setIsScheduling] = useState(false);
@@ -176,7 +195,8 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
   // Compute an effective video URL (explicit video first, then try to extract YouTube links from text)
   const extractedFromOverview = extractYouTubeUrlFromText(exercise.overview);
   const extractedFromDescription = extractYouTubeUrlFromText(exercise.description);
-  const effectiveVideoUrl = exercise.video ?? extractedFromOverview ?? extractedFromDescription;
+  const explicitVideo = typeof exercise.video === 'string' ? exercise.video.trim() : '';
+  const effectiveVideoUrl = explicitVideo || extractedFromOverview || extractedFromDescription;
   const ytId = getYouTubeId(effectiveVideoUrl);
 
   // Get fallback image for when exercise.image is missing
@@ -231,6 +251,7 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
         setIframeReady(true);
         setIframeTimeout(false);
         if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+        if (iframeOpenFallbackRef.current) { window.clearTimeout(iframeOpenFallbackRef.current); iframeOpenFallbackRef.current = null; }
         // Helpful debug log for automated tests
         try { if (typeof navigator !== 'undefined' && (navigator as any).webdriver) console.log('YT:onReady'); } catch {}
       }
@@ -243,6 +264,7 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
         if (info === 1) { // playing
           setIframeTimeout(false);
           if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+          if (iframeOpenFallbackRef.current) { window.clearTimeout(iframeOpenFallbackRef.current); iframeOpenFallbackRef.current = null; }
         }
       }
     };
@@ -270,17 +292,16 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     };
   }, []);
 
-  // If the iframe times out (didn't report ready), attempt a muted-autoplay fallback by reloading the iframe with autoplay and mute params
+  // If the iframe times out (didn't report ready), attempt a muted-autoplay fallback by remounting the iframe with autoplay and mute params
   useEffect(() => {
-    if (iframeTimeout && iframeRef.current) {
+    if (iframeTimeout) {
       const yt = getYouTubeId(effectiveVideoUrl);
       if (!yt) return;
       const fallbackSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1`;
-      try {
-        iframeRef.current.src = fallbackSrc;
-      } catch (e) {
-        // ignore
-      }
+      // Use state to set the src and bump the key to force remount
+      setIframeSrc(fallbackSrc);
+      setIframeKey(k => k + 1);
+
       // clear the timeout flag after attempting the fallback to avoid repeated reloads
       setTimeout(() => setIframeTimeout(false), 3000);
     }
@@ -300,6 +321,19 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     }
   }, [autoPlay]);
 
+  // Keep an iframe src state in sync with the effective video url (init and when it changes)
+  useEffect(() => {
+    const yt = getYouTubeId(effectiveVideoUrl);
+    if (yt) {
+      const initialSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+      setIframeSrc(initialSrc);
+      setIframeKey(0);
+    } else {
+      setIframeSrc(null);
+      setIframeKey(0);
+    }
+  }, [effectiveVideoUrl]);
+
   useEffect(() => {
     if (videoRef.current) {
         if (isPlaying) {
@@ -309,6 +343,37 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
         }
     }
   }, [isPlaying]);
+
+  // Debug: Add iframe dimension logging
+  useEffect(() => {
+    if (iframeRef.current) {
+      const rect = iframeRef.current.getBoundingClientRect();
+      console.log('🎥 Iframe dimensions:', {
+        width: rect.width,
+        height: rect.height,
+        clientWidth: iframeRef.current.clientWidth,
+        clientHeight: iframeRef.current.clientHeight,
+        offsetWidth: iframeRef.current.offsetWidth,
+        offsetHeight: iframeRef.current.offsetHeight
+      });
+    }
+  }, [iframeLoaded, isPlaying]);
+
+  // Debug: Add container dimension logging
+  useEffect(() => {
+    if (videoContainerRef.current) {
+      const rect = videoContainerRef.current.getBoundingClientRect();
+      console.log('📺 Video container dimensions:', {
+        width: rect.width,
+        height: rect.height,
+        clientWidth: videoContainerRef.current.clientWidth,
+        clientHeight: videoContainerRef.current.clientHeight,
+        offsetWidth: videoContainerRef.current.offsetWidth,
+        offsetHeight: videoContainerRef.current.offsetHeight,
+        computedHeight: getComputedStyle(videoContainerRef.current).height
+      });
+    }
+  }, []);
 
   const handleTimeUpdate = () => {
       if (videoRef.current) {
@@ -342,17 +407,13 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
       const win = iframeRef.current?.contentWindow;
       if (!win) return;
       try {
-        // Prefer posting to the iframe's origin when possible for stricter messaging
-        let targetOrigin = '*';
-        try {
-        const src = iframeRef.current?.src;
-        if (src) targetOrigin = new URL(src).origin;
-        } catch (e) {
-        // fallback to wildcard
-        }
-        win.postMessage(JSON.stringify({ event: 'command', func: cmd, args }), targetOrigin);
+        // YouTube iframe API requires wildcard origin for cross-origin messaging
+        // The specific origin validation is handled by YouTube's internal message listener
+        const message = JSON.stringify({ event: 'command', func: cmd, args });
+        win.postMessage(message, '*');
       } catch (e) {
-        // ignore
+        // ignore postMessage errors
+        console.log('postMessage error:', e);
       }
   };
 
@@ -397,14 +458,34 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                     // a user-gesture-initiated navigation for autoplay on cross-origin iframes.
                     try {
                       const yt = getYouTubeId(effectiveVideoUrl);
-                      if (yt && iframeRef.current) {
+                      if (yt) {
                         const fallbackSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1`;
-                        // Set src to trigger the player to start immediately under the user gesture
-                        iframeRef.current.src = fallbackSrc;
+                        // Use state to set the new src and bump the remount key so the browser treats it as a fresh navigation
+                        setIframeSrc(fallbackSrc);
+                        setIframeKey(k => k + 1);
                         setIframeLoaded(true);
                         setIframeTimeout(false);
                         if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
                         setIsPlaying(true);
+
+                        // After a short delay, attempt to send a play command in case the new player is ready fast
+                        setTimeout(() => {
+                          try { postYouTubeCommand('playVideo'); postYouTubeCommand('unMute'); } catch (e) {}
+                        }, 300);
+
+                        // Schedule a backup to show a blocked playback UI (do NOT open external pages automatically)
+                        if (typeof window !== 'undefined') {
+                          if (iframeOpenFallbackRef.current) { window.clearTimeout(iframeOpenFallbackRef.current); iframeOpenFallbackRef.current = null; }
+                          iframeOpenFallbackRef.current = window.setTimeout(() => {
+                            if (!iframeReady && iframeState !== 1) {
+                              // Instead of auto-opening YouTube, surface a user-facing blocked playback UI and keep the user in the app
+                              setIframePlaybackBlocked(true);
+                              setIsPlaying(false);
+                            }
+                            iframeOpenFallbackRef.current = null;
+                          }, 2500);
+                        }
+
                         return;
                       }
                     } catch (e) {
@@ -430,6 +511,25 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
       // Fallback: toggle playing state
       setIsPlaying(!isPlaying);
+  };
+
+  const handleRetryPlay = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    // Reset blocked state and attempt a muted autoplay remount
+    setIframePlaybackBlocked(false);
+    setIframeTimeout(false);
+    if (iframeTimeoutRef.current) { window.clearTimeout(iframeTimeoutRef.current); iframeTimeoutRef.current = null; }
+    const yt = getYouTubeId(effectiveVideoUrl);
+    if (!yt) return;
+    const fallbackSrc = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1`;
+    setIframeSrc(fallbackSrc);
+    setIframeKey(k => k + 1);
+    setIsPlaying(true);
+    // Re-arm the longer timeout as a safety net
+    iframeTimeoutRef.current = window.setTimeout(() => {
+      setIframeTimeout(true);
+      iframeTimeoutRef.current = null;
+    }, 8000);
   };
 
   const toggleFullScreen = (e: React.MouseEvent) => {
@@ -481,7 +581,8 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
         <div 
             ref={videoContainerRef}
             data-testid="video-container"
-            className="h-[55vh] relative shrink-0 bg-[#111] group overflow-hidden cursor-pointer"
+            className="relative shrink-0 bg-[#111] group overflow-hidden cursor-pointer"
+            style={{ height: '55vh' }}
             onClick={togglePlay}
         >
                      {/* Video Source */}
@@ -489,17 +590,20 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                          (() => {
                              const yt = getYouTubeId(effectiveVideoUrl);
                              if (yt) {
-                                const src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+                                // Use controlled iframe src and key to allow remounting for autoplay fallbacks
+                                const initial = iframeSrc ?? `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
                                  return (
                                      <iframe
+                                        key={`yt-${exercise.id}-${iframeKey}`}
                                         ref={iframeRef}
                                         title={exercise.name}
-                                        src={src}
+                                        src={initial}
                                         onLoad={() => setIframeLoaded(true)}
-                                         className="w-full h-full object-cover"
-                                         frameBorder="0"
-                                         allow="autoplay; encrypted-media; clipboard-write; gyroscope; picture-in-picture; web-share"
-                                         allowFullScreen
+                                        className="absolute inset-0 w-full h-full"
+                                        style={{ width: '100%', height: '100%', border: 'none' }}
+                                        frameBorder="0"
+                                        allow="autoplay; encrypted-media; clipboard-write; gyroscope; picture-in-picture; web-share"
+                                        allowFullScreen
                                      />
                                  );
                              }
@@ -511,14 +615,13 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                                 }
 
                                 return (
-                                  <video 
+                                  <video
                                     ref={videoRef}
                                     src={effectiveVideoUrl}
                                     poster={exerciseImage}
                                     preload="metadata"
                                     className="w-full h-full object-cover"
                                     playsInline
-                                    controls
                                     loop
                                     onLoadedMetadata={() => {
                                       if (videoRef.current) setDuration(videoRef.current.duration);
@@ -531,6 +634,12 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                                       console.error('Video failed to load', effectiveVideoUrl);
                                       setVideoError(true);
                                       setIsPlaying(false);
+                                      // Show user-friendly message
+                                      setTimeout(() => {
+                                        if (typeof window !== 'undefined') {
+                                          console.log('This video cannot be embedded due to restrictions. Showing image fallback.');
+                                        }
+                                      }, 100);
                                     }}
                                     onCanPlay={() => {
                                       // Clear any previous error once the source is playable
@@ -551,13 +660,13 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
            {showDebug && (
              <div className="absolute top-4 right-4 bg-black/60 text-xs text-white p-3 rounded-md z-40 pointer-events-auto max-w-xs">
                <div className="font-bold mb-1">Video Debug</div>
-               <div className="text-[12px] leading-tight">
+               <div data-testid="diagnostics-text" className="text-[12px] leading-tight">
                  <div><strong>ytId:</strong> {ytId ?? '—'}</div>
                  <div><strong>iframeLoaded:</strong> {String(iframeLoaded)}</div>
                  <div><strong>iframeReady:</strong> {String(iframeReady)}</div>
                  <div><strong>iframeState:</strong> {String(iframeState)}</div>
                  <div><strong>iframeTimeout:</strong> {String(iframeTimeout)}</div>
-                 <div className="truncate"><strong>src:</strong> {iframeRef.current?.src ?? (ytId ? `https://www.youtube.com/watch?v=${ytId}` : '—')}</div>
+                 <div className="truncate"><strong>src:</strong> {iframeSrc ?? (ytId ? `https://www.youtube.com/watch?v=${ytId}` : '—')}</div>
                </div>
              </div>
            )}
@@ -639,6 +748,20 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                  >
                     {isPlaying ? <Pause size={32} className="fill-current" /> : <Play size={32} className="fill-current ml-2 group-hover:scale-110 transition-transform" />}
                  </motion.button>
+
+                 {/* Playback blocked overlay (shown when autoplay fallback would have opened YouTube) */}
+                 {iframePlaybackBlocked && (
+                   <div data-testid="yt-fallback" className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
+                     <div className="bg-black/80 p-4 rounded-md text-center text-white max-w-xs mx-4">
+                       <div className="mb-2 font-bold">Playback blocked</div>
+                       <div className="text-sm mb-4">Your browser blocked autoplay for this video. You can open it on YouTube or try again.</div>
+                       <div className="flex gap-2 justify-center">
+                         <button data-testid="open-on-youtube-btn" onClick={(e) => { e.stopPropagation(); if (ytId) { try { window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank', 'noopener'); } catch (e) {} } }} className="px-3 py-2 rounded-md bg-white text-black font-bold">Open on YouTube</button>
+                         <button data-testid="retry-play-btn" onClick={(e) => handleRetryPlay(e)} className="px-3 py-2 rounded-md border border-white/10">Try again</button>
+                       </div>
+                     </div>
+                   </div>
+                 )}
               </div>
 
               {/* Bottom Interface */}

@@ -253,15 +253,13 @@ export const Coach: React.FC<CoachProps> = ({ initialTab, initialExerciseId, onL
                 key={ex.id} 
                 layoutId={`lib-${ex.id}`}
                 onClick={() => setSelectedExercise(ex)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedExercise(ex); } }}
-                tabIndex={0}
-                role="button"
                 className="aspect-square relative bg-[#1C1C1E] rounded-[32px] overflow-hidden active:scale-[0.98] transition-transform cursor-pointer group border border-white/15"
               >
-                 <VideoPreview exercise={ex} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
+                 <VideoPreview exercise={ex} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity z-10" />
+                 {/* Gradient overlay (non-interactive) so preview iframe remains visible */}
+                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40 pointer-events-none z-0" />
                  
-                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-30">
                     <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/10">
                         <Plus size={16} className="text-white" />
                     </div>
