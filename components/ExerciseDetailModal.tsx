@@ -478,9 +478,9 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
                           if (iframeOpenFallbackRef.current) { window.clearTimeout(iframeOpenFallbackRef.current); iframeOpenFallbackRef.current = null; }
                           iframeOpenFallbackRef.current = window.setTimeout(() => {
                             if (!iframeReady && iframeState !== 1) {
-                              // Instead of auto-opening YouTube, surface a user-facing blocked playback UI and keep the user in the app
+                              // Instead of auto-opening YouTube, surface a subtle non-blocking notification so the user can still interact with the player
                               setIframePlaybackBlocked(true);
-                              setIsPlaying(false);
+                              // Note: do NOT force-stop playing state — allow the user to continue interacting with the player
                             }
                             iframeOpenFallbackRef.current = null;
                           }, 2500);
@@ -751,13 +751,16 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
 
                  {/* Playback blocked overlay (shown when autoplay fallback would have opened YouTube) */}
                  {iframePlaybackBlocked && (
-                   <div data-testid="yt-fallback" className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
-                     <div className="bg-black/80 p-4 rounded-md text-center text-white max-w-xs mx-4">
-                       <div className="mb-2 font-bold">Playback blocked</div>
-                       <div className="text-sm mb-4">Your browser blocked autoplay for this video. You can open it on YouTube or try again.</div>
-                       <div className="flex gap-2 justify-center">
-                         <button data-testid="open-on-youtube-btn" onClick={(e) => { e.stopPropagation(); if (ytId) { try { window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank', 'noopener'); } catch (e) {} } }} className="px-3 py-2 rounded-md bg-white text-black font-bold">Open on YouTube</button>
-                         <button data-testid="retry-play-btn" onClick={(e) => handleRetryPlay(e)} className="px-3 py-2 rounded-md border border-white/10">Try again</button>
+                   <div data-testid="yt-fallback" className="absolute top-4 right-4 z-30 pointer-events-none">
+                     <div className="pointer-events-auto flex items-center gap-3 bg-black/70 p-2 rounded-md text-white text-sm max-w-xs">
+                       <div className="flex-1">
+                         <div className="font-bold">Playback blocked</div>
+                         <div className="text-xs">Autoplay was blocked — open on YouTube or try again.</div>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <button data-testid="open-on-youtube-btn" onClick={(e) => { e.stopPropagation(); if (ytId) { try { window.open(`https://www.youtube.com/watch?v=${ytId}`, '_blank', 'noopener'); } catch (e) {} } }} className="px-2 py-1 rounded bg-white text-black text-xs font-bold">Open</button>
+                         <button data-testid="retry-play-btn" onClick={(e) => handleRetryPlay(e)} className="px-2 py-1 rounded border border-white/10 text-xs">Try</button>
+                         <button data-testid="dismiss-yt-fallback" aria-label="Dismiss" onClick={(e) => { e.stopPropagation(); setIframePlaybackBlocked(false); }} className="px-2 py-1 text-xs">✕</button>
                        </div>
                      </div>
                    </div>
