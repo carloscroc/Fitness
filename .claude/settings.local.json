@@ -17,7 +17,8 @@
       "mcp__plugin_playwright_playwright__browser_snapshot",
       "mcp__plugin_playwright_playwright__browser_evaluate",
       "mcp__plugin_playwright_playwright__browser_wait_for",
-      "Bash(timeout 30 npx playwright test:*)"
+      "Bash(timeout 30 npx playwright test:*)",
+      "Bash(python3:*)"
     ]
   }
 }
