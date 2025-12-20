@@ -94,7 +94,22 @@ export const FEATURE_FLAGS = {
   PHASE_1_BACK_EXERCISES: 'phase-1-back-exercises',
   PHASE_1_CORE_EXERCISES: 'phase-1-core-exercises',
   PHASE_1_BODYWEIGHT_EXERCISES: 'phase-1-bodyweight-exercises',
-  PHASE_1_BEGINNER_EXERCISES: 'phase-1-beginner-exercises'
+  PHASE_1_BEGINNER_EXERCISES: 'phase-1-beginner-exercises',
+
+  // Phase 2: Equipment Expansion Rollout
+  // ----------------------------------------
+
+  // Enable Phase 2 equipment diversity exercises
+  PHASE_2_EQUIPMENT_DIVERSITY: 'phase-2-equipment-diversity',
+
+  // Enable progressive rollout of Phase 2 exercises
+  PHASE_2_PERCENTAGE_ROLLOUT: 'phase-2-percentage-rollout',
+
+  // Enable Phase 2 exercise categories individually
+  PHASE_2_KETTLEBELL_EXERCISES: 'phase-2-kettlebell-exercises',
+  PHASE_2_RESISTANCE_BAND_EXERCISES: 'phase-2-resistance-band-exercises',
+  PHASE_2_DUMBBELL_VARIATIONS: 'phase-2-dumbbell-variations',
+  PHASE_2_CARDIO_CONDITIONING: 'phase-2-cardio-conditioning'
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
@@ -504,4 +519,73 @@ export function disablePhase1Exercises(): void {
   setFeatureFlag('PHASE_1_BODYWEIGHT_EXERCISES', false);
   setFeatureFlag('PHASE_1_BEGINNER_EXERCISES', false);
   console.log('Phase 1 exercises disabled (rollback)');
+}
+
+/**
+ * Phase 2 Equipment Expansion Functions
+ */
+
+/**
+ * Check if Phase 2 equipment diversity exercises should be enabled based on percentage rollout
+ */
+export function shouldEnablePhase2Exercises(rolloutPercentage: number = 25): boolean {
+  // Check if individual Phase 2 feature is enabled
+  if (!isFeatureEnabled('PHASE_2_PERCENTAGE_ROLLOUT', false)) {
+    return isFeatureEnabled('PHASE_2_EQUIPMENT_DIVERSITY', false);
+  }
+
+  return isUserInRollout(rolloutPercentage);
+}
+
+/**
+ * Check if specific Phase 2 exercise categories are enabled
+ */
+export function shouldEnablePhase2Category(category: 'kettlebell' | 'resistance-band' | 'dumbbell-variations' | 'cardio-conditioning'): boolean {
+  const categoryFlags = {
+    kettlebell: 'PHASE_2_KETTLEBELL_EXERCISES',
+    'resistance-band': 'PHASE_2_RESISTANCE_BAND_EXERCISES',
+    'dumbbell-variations': 'PHASE_2_DUMBBELL_VARIATIONS',
+    'cardio-conditioning': 'PHASE_2_CARDIO_CONDITIONING'
+  };
+
+  return shouldEnablePhase2Exercises() && isFeatureEnabled(categoryFlags[category], true);
+}
+
+/**
+ * Get all Phase 2 exercise categories that should be available to the user
+ */
+export function getPhase2AvailableCategories(): {
+  kettlebell: boolean;
+  'resistance-band': boolean;
+  'dumbbell-variations': boolean;
+  'cardio-conditioning': boolean;
+} {
+  return {
+    kettlebell: shouldEnablePhase2Category('kettlebell'),
+    'resistance-band': shouldEnablePhase2Category('resistance-band'),
+    'dumbbell-variations': shouldEnablePhase2Category('dumbbell-variations'),
+    'cardio-conditioning': shouldEnablePhase2Category('cardio-conditioning')
+  };
+}
+
+/**
+ * Enable Phase 2 exercises with specified rollout percentage
+ */
+export function enablePhase2Rollout(percentage: number = 25): void {
+  setFeatureFlag('PHASE_2_PERCENTAGE_ROLLOUT', true);
+  // You would set the percentage via environment variable: VITE_PHASE_2_ROLLOUT_PERCENTAGE
+  console.log(`Phase 2 exercises enabled for ${percentage}% of users`);
+}
+
+/**
+ * Disable Phase 2 exercises (rollback)
+ */
+export function disablePhase2Exercises(): void {
+  setFeatureFlag('PHASE_2_EQUIPMENT_DIVERSITY', false);
+  setFeatureFlag('PHASE_2_PERCENTAGE_ROLLOUT', false);
+  setFeatureFlag('PHASE_2_KETTLEBELL_EXERCISES', false);
+  setFeatureFlag('PHASE_2_RESISTANCE_BAND_EXERCISES', false);
+  setFeatureFlag('PHASE_2_DUMBBELL_VARIATIONS', false);
+  setFeatureFlag('PHASE_2_CARDIO_CONDITIONING', false);
+  console.log('Phase 2 exercises disabled (rollback)');
 }

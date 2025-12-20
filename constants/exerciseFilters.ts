@@ -63,6 +63,7 @@ export const EQUIPMENT_TYPES = [
   { value: 'stability-ball', label: 'Stability Ball', category: 'accessories', icon: '⚪', availability: 'home', color: '#48C9B0' },
   { value: 'boxing-gloves', label: 'Boxing Gloves', category: 'accessories', icon: '🥊', availability: 'home', color: '#E59866' },
   { value: 'plyometric-box', label: 'Plyometric Box', category: 'accessories', icon: '📦', availability: 'home', color: '#F4D03F' },
+  { value: 'battle-ropes', label: 'Battle Ropes', category: 'accessories', icon: '🪢', availability: 'gym', color: '#E74C3C' },
   { value: 'mat', label: 'Exercise Mat', category: 'accessories', icon: '🧘', availability: 'home', color: '#F8B739' },
 
   // Other
