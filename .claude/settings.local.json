@@ -18,7 +18,13 @@
       "mcp__plugin_playwright_playwright__browser_evaluate",
       "mcp__plugin_playwright_playwright__browser_wait_for",
       "Bash(timeout 30 npx playwright test:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "mcp__plugin_episodic-memory_episodic-memory__search",
+      "mcp__filesystem__read_text_file",
+      "mcp__filesystem__edit_file",
+      "Bash(timeout:*)",
+      "mcp__filesystem__read_media_file"
     ]
   }
 }
