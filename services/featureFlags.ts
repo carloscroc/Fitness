@@ -109,7 +109,22 @@ export const FEATURE_FLAGS = {
   PHASE_2_KETTLEBELL_EXERCISES: 'phase-2-kettlebell-exercises',
   PHASE_2_RESISTANCE_BAND_EXERCISES: 'phase-2-resistance-band-exercises',
   PHASE_2_DUMBBELL_VARIATIONS: 'phase-2-dumbbell-variations',
-  PHASE_2_CARDIO_CONDITIONING: 'phase-2-cardio-conditioning'
+  PHASE_2_CARDIO_CONDITIONING: 'phase-2-cardio-conditioning',
+
+  // Phase 3: Advanced & Specialized Week
+  // ----------------------------------------
+
+  // Enable Phase 3 advanced & specialized exercises
+  PHASE_3_ADVANCED_SPECIALIZED: 'phase-3-advanced-specialized',
+
+  // Enable progressive rollout of Phase 3 exercises
+  PHASE_3_PERCENTAGE_ROLLOUT: 'phase-3-percentage-rollout',
+
+  // Enable Phase 3 exercise categories individually
+  PHASE_3_ADVANCED_COMPOUND: 'phase-3-advanced-compound',
+  PHASE_3_SPORT_SPECIFIC: 'phase-3-sport-specific',
+  PHASE_3_REHABILITATION: 'phase-3-rehabilitation',
+  PHASE_3_CHEST_ARMS: 'phase-3-chest-arms'
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
@@ -588,4 +603,77 @@ export function disablePhase2Exercises(): void {
   setFeatureFlag('PHASE_2_DUMBBELL_VARIATIONS', false);
   setFeatureFlag('PHASE_2_CARDIO_CONDITIONING', false);
   console.log('Phase 2 exercises disabled (rollback)');
+}
+
+/**
+ * Phase 3: Advanced & Specialized Week Functions
+ */
+
+/**
+ * Check if Phase 3 advanced & specialized exercises should be enabled based on percentage rollout
+ */
+export function shouldEnablePhase3Exercises(rolloutPercentage: number = 50): boolean {
+  // Check if individual Phase 3 feature is enabled
+  if (!isFeatureEnabled('PHASE_3_PERCENTAGE_ROLLOUT', false)) {
+    return isFeatureEnabled('PHASE_3_ADVANCED_SPECIALIZED', false);
+  }
+
+  return isUserInRollout(rolloutPercentage);
+}
+
+/**
+ * Check if specific Phase 3 exercise categories are enabled
+ */
+export function shouldEnablePhase3Category(category: 'advanced-compound' | 'sport-specific' | 'rehabilitation' | 'chest-arms' | 'advanced-specialized'): boolean {
+  const categoryFlags = {
+    'advanced-compound': 'PHASE_3_ADVANCED_COMPOUND',
+    'sport-specific': 'PHASE_3_SPORT_SPECIFIC',
+    'rehabilitation': 'PHASE_3_REHABILITATION',
+    'chest-arms': 'PHASE_3_CHEST_ARMS',
+    'advanced-specialized': 'PHASE_3_ADVANCED_SPECIALIZED'
+  };
+
+  return shouldEnablePhase3Exercises() && isFeatureEnabled(categoryFlags[category], true);
+}
+
+/**
+ * Get all Phase 3 exercise categories that should be available to the user
+ */
+export function getPhase3AvailableCategories(): {
+  advancedCompound: boolean;
+  sportSpecific: boolean;
+  rehabilitation: boolean;
+  chestArms: boolean;
+  advancedSpecialized: boolean;
+} {
+  return {
+    advancedCompound: shouldEnablePhase3Category('advanced-compound'),
+    sportSpecific: shouldEnablePhase3Category('sport-specific'),
+    rehabilitation: shouldEnablePhase3Category('rehabilitation'),
+    chestArms: shouldEnablePhase3Category('chest-arms'),
+    advancedSpecialized: shouldEnablePhase3Category('advanced-specialized')
+  };
+}
+
+/**
+ * Enable Phase 3 exercises with specified rollout percentage
+ */
+export function enablePhase3Rollout(percentage: number = 50): void {
+  setFeatureFlag('PHASE_3_PERCENTAGE_ROLLOUT', true);
+  // You would set the percentage via environment variable: VITE_PHASE_3_ROLLOUT_PERCENTAGE
+  console.log(`Phase 3 exercises enabled for ${percentage}% of users`);
+}
+
+/**
+ * Disable Phase 3 exercises (rollback)
+ */
+export function disablePhase3Exercises(): void {
+  setFeatureFlag('PHASE_3_ADVANCED_SPECIALIZED', false);
+  setFeatureFlag('PHASE_3_PERCENTAGE_ROLLOUT', false);
+  setFeatureFlag('PHASE_3_ADVANCED_COMPOUND', false);
+  setFeatureFlag('PHASE_3_SPORT_SPECIFIC', false);
+  setFeatureFlag('PHASE_3_REHABILITATION', false);
+  setFeatureFlag('PHASE_3_CHEST_ARMS', false);
+  setFeatureFlag('PHASE_3_ADVANCED_SPECIALIZED', false);
+  console.log('Phase 3 exercises disabled (rollback)');
 }

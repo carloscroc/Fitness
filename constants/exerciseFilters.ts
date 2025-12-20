@@ -30,6 +30,7 @@ export const EQUIPMENT_TYPES = [
   { value: 'resistance-bands', label: 'Resistance Bands', category: 'free-weights', icon: '🎽', availability: 'home', color: '#8E44AD' },
   { value: 'medicine-ball', label: 'Medicine Ball', category: 'free-weights', icon: '⚪', availability: 'home', color: '#16A085' },
   { value: 'weight-plates', label: 'Weight Plates', category: 'free-weights', icon: '🟫', availability: 'gym', color: '#7F8C8D' },
+  { value: 'ez-bar', label: 'EZ Bar', category: 'free-weights', icon: '🏋️', availability: 'gym', color: '#95A5A6' },
 
   // Machines
   { value: 'leg-press', label: 'Leg Press', category: 'machines', icon: '🦵', availability: 'gym', color: '#2980B9' },
@@ -65,6 +66,10 @@ export const EQUIPMENT_TYPES = [
   { value: 'plyometric-box', label: 'Plyometric Box', category: 'accessories', icon: '📦', availability: 'home', color: '#F4D03F' },
   { value: 'battle-ropes', label: 'Battle Ropes', category: 'accessories', icon: '🪢', availability: 'gym', color: '#E74C3C' },
   { value: 'mat', label: 'Exercise Mat', category: 'accessories', icon: '🧘', availability: 'home', color: '#F8B739' },
+  { value: 'rings', label: 'Gymnastic Rings', category: 'accessories', icon: '⭕', availability: 'gym', color: '#F39C12' },
+  { value: 'heavy-bag', label: 'Heavy Bag', category: 'accessories', icon: '🥊', availability: 'gym', color: '#E67E22' },
+  { value: 'agility-ladder', label: 'Agility Ladder', category: 'accessories', icon: '🪜', availability: 'home', color: '#3498DB' },
+  { value: 'pole', label: 'Pole', category: 'accessories', icon: '🚧', availability: 'gym', color: '#7F8C8D' },
 
   // Other
   { value: 'other', label: 'Other', category: 'other', icon: '🔧', availability: 'both', color: '#7F8C8D' }

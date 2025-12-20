@@ -25,7 +25,9 @@
       "mcp__filesystem__edit_file",
       "Bash(timeout:*)",
       "mcp__filesystem__read_media_file",
-      "mcp__filesystem__write_file"
+      "mcp__filesystem__write_file",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run)"
     ]
   }
 }
