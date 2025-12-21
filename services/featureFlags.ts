@@ -124,7 +124,45 @@ export const FEATURE_FLAGS = {
   PHASE_3_ADVANCED_COMPOUND: 'phase-3-advanced-compound',
   PHASE_3_SPORT_SPECIFIC: 'phase-3-sport-specific',
   PHASE_3_REHABILITATION: 'phase-3-rehabilitation',
-  PHASE_3_CHEST_ARMS: 'phase-3-chest-arms'
+  PHASE_3_CHEST_ARMS: 'phase-3-chest-arms',
+
+  // Phase 4: Enhanced & Specialized Features
+  // ----------------------------------------
+
+  // Enable Phase 4 enhanced features
+  PHASE_4_ENHANCED_FEATURES: 'phase-4-enhanced-features',
+
+  // Enable progressive rollout of Phase 4 exercises
+  PHASE_4_PERCENTAGE_ROLLOUT: 'phase-4-percentage-rollout',
+
+  // Enable Phase 4 exercise categories individually
+  PHASE_4_FLEXIBILITY_EXERCISES: 'phase-4-flexibility-exercises',
+  PHASE_4_BALANCE_EXERCISES: 'phase-4-balance-exercises',
+  PHASE_4_MEDICINE_BALL_EXERCISES: 'phase-4-medicine-ball-exercises',
+  PHASE_4_STABILITY_BALL_EXERCISES: 'phase-4-stability-ball-exercises',
+  PHASE_4_ADVANCED_CARDIO_EXERCISES: 'phase-4-advanced-cardio-exercises',
+
+  // Enable Phase 4 progression tracking features
+  PHASE_4_FLEXIBILITY_PROGRESSION: 'phase-4-flexibility-progression',
+  PHASE_4_BALANCE_DIFFICULTY: 'phase-4-balance-difficulty',
+  PHASE_4_MEDICINE_BALL_POWER: 'phase-4-medicine-ball-power',
+  PHASE_4_STABILITY_BALL_ENGAGEMENT: 'phase-4-stability-ball-engagement',
+
+  // Enable Phase 4 enhanced UI components
+  PHASE_4_EXERCISE_CARD_INDICATORS: 'phase-4-exercise-card-indicators',
+  PHASE_4_FILTER_PANEL_ENHANCEMENTS: 'phase-4-filter-panel-enhancements',
+  PHASE_4_CATEGORY_BADGES: 'phase-4-category-badges',
+
+  // Enable Phase 4 advanced features
+  PHASE_4_POWER_METRICS: 'phase-4-power-metrics',
+  PHASE_4_BALANCE_REQUIREMENTS: 'phase-4-balance-requirements',
+  PHASE_4_FLEXIBILITY_TYPES: 'phase-4-flexibility-types',
+  PHASE_4_ADVANCED_FILTERING: 'phase-4-advanced-filtering',
+
+  // Enable Phase 4 service capabilities
+  PHASE_4_PROGRESSION_SERVICE: 'phase-4-progression-service',
+  PHASE_4_RECOMMENDATION_ENGINE: 'phase-4-recommendation-engine',
+  PHASE_4_ANALYTICS_SERVICE: 'phase-4-analytics-service'
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
@@ -135,7 +173,8 @@ export type FeatureFlag = keyof typeof FEATURE_FLAGS;
  */
 export function isFeatureEnabled(flag: FeatureFlag, defaultValue: boolean = false): boolean {
   // Check environment variable first (highest priority)
-  const envValue = import.meta.env[`VITE_FF_${flag.toUpperCase()}`];
+  const envKey = `VITE_FF_${flag.toUpperCase()}`;
+  const envValue = (import.meta.env as any)[envKey];
   if (envValue !== undefined) {
     return envValue === 'true' || envValue === '1';
   }
@@ -494,7 +533,7 @@ export function shouldEnablePhase1Category(category: 'back' | 'core' | 'bodyweig
     beginner: 'PHASE_1_BEGINNER_EXERCISES'
   };
 
-  return shouldEnablePhase1Exercises() && isFeatureEnabled(categoryFlags[category], true);
+  return shouldEnablePhase1Exercises() && isFeatureEnabled(categoryFlags[category as FeatureFlag], true);
 }
 
 /**
@@ -563,7 +602,7 @@ export function shouldEnablePhase2Category(category: 'kettlebell' | 'resistance-
     'cardio-conditioning': 'PHASE_2_CARDIO_CONDITIONING'
   };
 
-  return shouldEnablePhase2Exercises() && isFeatureEnabled(categoryFlags[category], true);
+  return shouldEnablePhase2Exercises() && isFeatureEnabled(categoryFlags[category as FeatureFlag], true);
 }
 
 /**
@@ -633,7 +672,7 @@ export function shouldEnablePhase3Category(category: 'advanced-compound' | 'spor
     'advanced-specialized': 'PHASE_3_ADVANCED_SPECIALIZED'
   };
 
-  return shouldEnablePhase3Exercises() && isFeatureEnabled(categoryFlags[category], true);
+  return shouldEnablePhase3Exercises() && isFeatureEnabled(categoryFlags[category as FeatureFlag], true);
 }
 
 /**

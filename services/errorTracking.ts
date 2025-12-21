@@ -478,7 +478,7 @@ export function withErrorTracking<P extends object>(
     };
 
     try {
-      return <Component {...props} />;
+      return (Component as any)({...props});
     } catch (error) {
       handleError(error as Error);
       return null; // or render error boundary component

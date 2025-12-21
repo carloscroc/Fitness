@@ -115,6 +115,13 @@ export interface ExerciseFilterOptions {
   hasVideo?: boolean;
   hasImage?: boolean;
   minCompleteness?: number;
+
+  // Phase 4 Advanced Filters
+  balanceRequirements?: BalanceRequirement[];
+  flexibilityTypes?: FlexibilityType[];
+  powerMetrics?: PowerMetric[];
+  progressionLevel?: ProgressionLevel;
+  equipmentModifiers?: EquipmentModifiers;
 }
 
 /**
@@ -180,6 +187,48 @@ export interface ExerciseExport {
     averageQuality: number;
   };
 }
+
+/**
+ * Phase 4 Filter Type Definitions
+ */
+
+/**
+ * Balance requirement levels for exercises
+ */
+export type BalanceRequirement = 'none' | 'static' | 'dynamic' | 'advanced';
+
+/**
+ * Flexibility types for stretching exercises
+ */
+export type FlexibilityType = 'static' | 'dynamic' | 'proprioceptive';
+
+/**
+ * Power metrics for explosive and rotational movements
+ */
+export type PowerMetric = 'explosive' | 'rotational' | 'plyometric';
+
+/**
+ * Progression levels for progressive training (1-5)
+ */
+export type ProgressionLevel = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Equipment modifiers for specialized equipment
+ */
+export interface EquipmentModifiers {
+  medicineBallWeight?: MedicineBallWeight[];
+  stabilityBallSize?: StabilityBallSize[];
+}
+
+/**
+ * Medicine ball weight options (in kg)
+ */
+export type MedicineBallWeight = 2 | 4 | 6 | 8 | 10 | 12;
+
+/**
+ * Stability ball size options (in cm)
+ */
+export type StabilityBallSize = 55 | 65 | 75;
 
 /**
  * Type guards

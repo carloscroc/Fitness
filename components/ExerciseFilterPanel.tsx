@@ -31,6 +31,11 @@ import {
 } from 'lucide-react';
 import MuscleGroupSelector from './MuscleGroupSelector';
 import EquipmentFilter from './EquipmentFilter';
+import BalanceRequirementFilter from './BalanceRequirementFilter';
+import FlexibilityTypeFilter from './FlexibilityTypeFilter';
+import PowerMetricsFilter from './PowerMetricsFilter';
+import EquipmentModifiersFilter from './EquipmentModifiersFilter';
+import ProgressionLevelFilter from './ProgressionLevelFilter';
 import { Button } from './ui/Button';
 import {
   ExerciseFilterOptions,
@@ -44,7 +49,12 @@ import {
   EquipmentType,
   ExerciseCategory,
   DifficultyLevel,
-  FilterPresetId
+  FilterPresetId,
+  BalanceRequirement,
+  FlexibilityType,
+  PowerMetric,
+  ProgressionLevel,
+  EquipmentModifiers
 } from '../constants/exerciseFilters';
 
 interface ExerciseFilterPanelProps {
@@ -85,7 +95,7 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
 }) => {
   // UI State
   const [isExpanded, setIsExpanded] = useState(!compact);
-  const [activeTab, setActiveTab] = useState<'muscles' | 'equipment' | 'options'>('muscles');
+  const [activeTab, setActiveTab] = useState<'muscles' | 'equipment' | 'options' | 'advanced'>('muscles');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showPresetsPanel, setShowPresetsPanel] = useState(false);
@@ -136,6 +146,17 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
     if (filters.minCompleteness && filters.minCompleteness > 0) count++;
     if (filters.hasVideo) count++;
     if (filters.hasImage) count++;
+
+    // Phase 4 filters
+    if (filters.balanceRequirements && filters.balanceRequirements.length > 0) count++;
+    if (filters.flexibilityTypes && filters.flexibilityTypes.length > 0) count++;
+    if (filters.powerMetrics && filters.powerMetrics.length > 0) count++;
+    if (filters.progressionLevel) count++;
+    if (filters.equipmentModifiers) {
+      if (filters.equipmentModifiers.medicineBallWeight && filters.equipmentModifiers.medicineBallWeight.length > 0) count++;
+      if (filters.equipmentModifiers.stabilityBallSize && filters.equipmentModifiers.stabilityBallSize.length > 0) count++;
+    }
+
     return count;
   }, [filters]);
 
@@ -178,6 +199,50 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
     onFiltersChange({
       ...filters,
       difficulty: newDifficulty.length > 0 ? newDifficulty : undefined
+    });
+  }, [filters, onFiltersChange]);
+
+  // Phase 4 Filter Handlers
+
+  // Handle balance requirements
+  const handleBalanceRequirementsChange = useCallback((balanceRequirements: BalanceRequirement[]) => {
+    onFiltersChange({
+      ...filters,
+      balanceRequirements: balanceRequirements.length > 0 ? balanceRequirements : undefined
+    });
+  }, [filters, onFiltersChange]);
+
+  // Handle flexibility types
+  const handleFlexibilityTypesChange = useCallback((flexibilityTypes: FlexibilityType[]) => {
+    onFiltersChange({
+      ...filters,
+      flexibilityTypes: flexibilityTypes.length > 0 ? flexibilityTypes : undefined
+    });
+  }, [filters, onFiltersChange]);
+
+  // Handle power metrics
+  const handlePowerMetricsChange = useCallback((powerMetrics: PowerMetric[]) => {
+    onFiltersChange({
+      ...filters,
+      powerMetrics: powerMetrics.length > 0 ? powerMetrics : undefined
+    });
+  }, [filters, onFiltersChange]);
+
+  // Handle progression level
+  const handleProgressionLevelChange = useCallback((progressionLevel?: ProgressionLevel) => {
+    onFiltersChange({
+      ...filters,
+      progressionLevel
+    });
+  }, [filters, onFiltersChange]);
+
+  // Handle equipment modifiers
+  const handleEquipmentModifiersChange = useCallback((equipmentModifiers: EquipmentModifiers) => {
+    onFiltersChange({
+      ...filters,
+      equipmentModifiers: (equipmentModifiers.medicineBallWeight?.length || equipmentModifiers.stabilityBallSize?.length)
+        ? equipmentModifiers
+        : undefined
     });
   }, [filters, onFiltersChange]);
 
@@ -255,6 +320,26 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
       params.set('hasImage', 'true');
     }
 
+    // Add Phase 4 filter parameters
+    if (filters.balanceRequirements?.length) {
+      params.set('balanceRequirements', filters.balanceRequirements.join(','));
+    }
+    if (filters.flexibilityTypes?.length) {
+      params.set('flexibilityTypes', filters.flexibilityTypes.join(','));
+    }
+    if (filters.powerMetrics?.length) {
+      params.set('powerMetrics', filters.powerMetrics.join(','));
+    }
+    if (filters.progressionLevel) {
+      params.set('progressionLevel', filters.progressionLevel.toString());
+    }
+    if (filters.equipmentModifiers?.medicineBallWeight?.length) {
+      params.set('medicineBallWeights', filters.equipmentModifiers.medicineBallWeight.join(','));
+    }
+    if (filters.equipmentModifiers?.stabilityBallSize?.length) {
+      params.set('stabilityBallSizes', filters.equipmentModifiers.stabilityBallSize.join(','));
+    }
+
     // Add sort parameters
     params.set('sortBy', sortBy.field);
     params.set('sortOrder', sortBy.direction);
@@ -277,9 +362,12 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    if (params.has('muscles') || params.has('equipment') || params.has('categories')) {
+    if (params.has('muscles') || params.has('equipment') || params.has('categories') ||
+        params.has('balanceRequirements') || params.has('flexibilityTypes') ||
+        params.has('powerMetrics') || params.has('progressionLevel')) {
       const urlFilters: ExerciseFilterOptions = {};
 
+      // Legacy filters
       if (params.get('muscles')) {
         urlFilters.muscles = params.get('muscles')!.split(',') as MuscleGroup[];
       }
@@ -300,6 +388,38 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
       }
       if (params.get('hasImage') === 'true') {
         urlFilters.hasImage = true;
+      }
+
+      // Phase 4 filters
+      if (params.get('balanceRequirements')) {
+        urlFilters.balanceRequirements = params.get('balanceRequirements')!.split(',') as BalanceRequirement[];
+      }
+      if (params.get('flexibilityTypes')) {
+        urlFilters.flexibilityTypes = params.get('flexibilityTypes')!.split(',') as FlexibilityType[];
+      }
+      if (params.get('powerMetrics')) {
+        urlFilters.powerMetrics = params.get('powerMetrics')!.split(',') as PowerMetric[];
+      }
+      if (params.get('progressionLevel')) {
+        urlFilters.progressionLevel = parseInt(params.get('progressionLevel')!) as ProgressionLevel;
+      }
+
+      // Equipment modifiers
+      const medicineBallWeights = params.get('medicineBallWeights');
+      const stabilityBallSizes = params.get('stabilityBallSizes');
+
+      if (medicineBallWeights || stabilityBallSizes) {
+        urlFilters.equipmentModifiers = {};
+        if (medicineBallWeights) {
+          urlFilters.equipmentModifiers.medicineBallWeight = medicineBallWeights
+            .split(',')
+            .map(w => parseInt(w) as MedicineBallWeight);
+        }
+        if (stabilityBallSizes) {
+          urlFilters.equipmentModifiers.stabilityBallSize = stabilityBallSizes
+            .split(',')
+            .map(s => parseInt(s) as StabilityBallSize);
+        }
       }
 
       onFiltersChange(urlFilters);
@@ -376,7 +496,7 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
 
                 {/* Tabs */}
                 <div className="flex gap-2 p-1 bg-[#2C2C2E] rounded-xl">
-                  {(['muscles', 'equipment', 'options'] as const).map((tab) => (
+                  {(['muscles', 'equipment', 'options', 'advanced'] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -479,6 +599,52 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
                           ))}
                         </div>
                       </div>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'advanced' && (
+                    <motion.div
+                      key="advanced"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="space-y-4"
+                    >
+                      {/* Phase 4 Compact Filters */}
+                      <BalanceRequirementFilter
+                        selectedRequirements={filters.balanceRequirements || []}
+                        onRequirementsChange={handleBalanceRequirementsChange}
+                        compact
+                        disabled={disabled}
+                      />
+
+                      <FlexibilityTypeFilter
+                        selectedTypes={filters.flexibilityTypes || []}
+                        onTypesChange={handleFlexibilityTypesChange}
+                        compact
+                        disabled={disabled}
+                      />
+
+                      <PowerMetricsFilter
+                        selectedMetrics={filters.powerMetrics || []}
+                        onMetricsChange={handlePowerMetricsChange}
+                        compact
+                        disabled={disabled}
+                      />
+
+                      <ProgressionLevelFilter
+                        selectedLevel={filters.progressionLevel}
+                        onLevelChange={handleProgressionLevelChange}
+                        compact
+                        disabled={disabled}
+                      />
+
+                      <EquipmentModifiersFilter
+                        selectedModifiers={filters.equipmentModifiers || {}}
+                        onModifiersChange={handleEquipmentModifiersChange}
+                        compact
+                        disabled={disabled}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -665,7 +831,7 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
       <div className="bg-[#1C1C1E] rounded-2xl border border-white/10">
         {/* Tab Navigation */}
         <div className="flex border-b border-white/10">
-          {(['muscles', 'equipment', 'options'] as const).map((tab) => (
+          {(['muscles', 'equipment', 'options', 'advanced'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -878,6 +1044,61 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
                 </div>
               </motion.div>
             )}
+
+            {activeTab === 'advanced' && (
+              <motion.div
+                key="advanced"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                {/* Phase 4 Advanced Filters */}
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-2">
+                    Phase 4 Advanced Filters
+                  </h3>
+                  <p className="text-sm text-zinc-400">
+                    Enhanced filtering options for specialized exercise selection
+                  </p>
+                </div>
+
+                {/* Balance Requirements */}
+                <BalanceRequirementFilter
+                  selectedRequirements={filters.balanceRequirements || []}
+                  onRequirementsChange={handleBalanceRequirementsChange}
+                  disabled={disabled}
+                />
+
+                {/* Flexibility Types */}
+                <FlexibilityTypeFilter
+                  selectedTypes={filters.flexibilityTypes || []}
+                  onTypesChange={handleFlexibilityTypesChange}
+                  disabled={disabled}
+                />
+
+                {/* Power Metrics */}
+                <PowerMetricsFilter
+                  selectedMetrics={filters.powerMetrics || []}
+                  onMetricsChange={handlePowerMetricsChange}
+                  disabled={disabled}
+                />
+
+                {/* Progression Level */}
+                <ProgressionLevelFilter
+                  selectedLevel={filters.progressionLevel}
+                  onLevelChange={handleProgressionLevelChange}
+                  disabled={disabled}
+                />
+
+                {/* Equipment Modifiers */}
+                <EquipmentModifiersFilter
+                  selectedModifiers={filters.equipmentModifiers || {}}
+                  onModifiersChange={handleEquipmentModifiersChange}
+                  disabled={disabled}
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
@@ -952,6 +1173,100 @@ export const ExerciseFilterPanel: React.FC<ExerciseFilterPanelProps> = ({
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Phase 4 Active Filters */}
+              {filters.balanceRequirements && filters.balanceRequirements.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-zinc-500 uppercase">Balance:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {filters.balanceRequirements.map((balance) => (
+                      <span
+                        key={balance}
+                        className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs"
+                      >
+                        {balance}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filters.flexibilityTypes && filters.flexibilityTypes.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-zinc-500 uppercase">Flexibility:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {filters.flexibilityTypes.map((flexibility) => (
+                      <span
+                        key={flexibility}
+                        className="px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs"
+                      >
+                        {flexibility}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filters.powerMetrics && filters.powerMetrics.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-zinc-500 uppercase">Power:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {filters.powerMetrics.map((power) => (
+                      <span
+                        key={power}
+                        className="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs"
+                      >
+                        {power}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filters.progressionLevel && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-zinc-500 uppercase">Progression:</span>
+                  <span className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full text-xs">
+                    Level {filters.progressionLevel}
+                  </span>
+                </div>
+              )}
+
+              {filters.equipmentModifiers && (
+                <>
+                  {filters.equipmentModifiers.medicineBallWeight && filters.equipmentModifiers.medicineBallWeight.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-zinc-500 uppercase">Medicine Ball:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {filters.equipmentModifiers.medicineBallWeight.map((weight) => (
+                          <span
+                            key={weight}
+                            className="px-2 py-1 bg-teal-500/20 text-teal-400 rounded-full text-xs"
+                          >
+                            {weight}kg
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filters.equipmentModifiers.stabilityBallSize && filters.equipmentModifiers.stabilityBallSize.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-zinc-500 uppercase">Stability Ball:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {filters.equipmentModifiers.stabilityBallSize.map((size) => (
+                          <span
+                            key={size}
+                            className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs"
+                          >
+                            {size}cm
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

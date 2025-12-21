@@ -268,6 +268,70 @@ export const FILTER_PRESETS = [
     },
     icon: '🧘',
     color: '#16A085'
+  },
+  // Phase 4 Advanced Presets
+  {
+    id: 'beginner-balance',
+    name: 'Beginner Balance',
+    description: 'Foundation balance training exercises',
+    filters: {
+      categories: ['Balance', 'Functional'],
+      difficulty: ['Beginner'],
+      balanceRequirements: ['none', 'static']
+    },
+    icon: '⚖️',
+    color: '#3498DB'
+  },
+  {
+    id: 'power-training',
+    name: 'Power Training',
+    description: 'Explosive and rotational power movements',
+    filters: {
+      categories: ['Strength', 'Functional'],
+      difficulty: ['Intermediate', 'Advanced'],
+      powerMetrics: ['explosive', 'rotational'],
+      equipment: ['medicine-ball', 'plyometric-box']
+    },
+    icon: '💥',
+    color: '#E74C3C'
+  },
+  {
+    id: 'flexibility-focus',
+    name: 'Flexibility Focus',
+    description: 'Comprehensive stretching and mobility',
+    filters: {
+      categories: ['Flexibility', 'Rehabilitation'],
+      flexibilityTypes: ['static', 'dynamic'],
+      equipment: ['yoga-mat', 'foam-roller', 'stability-ball']
+    },
+    icon: '🧘',
+    color: '#9B59B6'
+  },
+  {
+    id: 'advanced-balance',
+    name: 'Advanced Balance',
+    description: 'Challenging balance and stability exercises',
+    filters: {
+      categories: ['Balance', 'Functional'],
+      difficulty: ['Advanced'],
+      balanceRequirements: ['dynamic', 'advanced'],
+      equipment: ['stability-ball']
+    },
+    icon: '🎯',
+    color: '#E67E22'
+  },
+  {
+    id: 'plyometric-intensity',
+    name: 'Plyometric Intensity',
+    description: 'High-intensity explosive movements',
+    filters: {
+      categories: ['Cardio', 'Functional'],
+      difficulty: ['Intermediate', 'Advanced'],
+      powerMetrics: ['plyometric', 'explosive'],
+      equipment: ['plyometric-box', 'jump-rope', 'medicine-ball']
+    },
+    icon: '⚡',
+    color: '#3498DB'
   }
 ] as const;
 
@@ -306,6 +370,201 @@ export const EQUIPMENT_SUBSTITUTIONS = {
   'bench-press': ['push-ups', 'dumbbell-press']
 } as const;
 
+// Phase 4 Advanced Filter Constants
+
+// Balance Requirement Levels with visual indicators
+export const BALANCE_REQUIREMENTS = [
+  {
+    value: 'none',
+    label: 'None',
+    description: 'No balance required',
+    icon: '🚶',
+    color: '#2ECC71',
+    difficulty: 1
+  },
+  {
+    value: 'static',
+    label: 'Static',
+    description: 'Holding positions',
+    icon: '⚖️',
+    color: '#3498DB',
+    difficulty: 2
+  },
+  {
+    value: 'dynamic',
+    label: 'Dynamic',
+    description: 'Moving balance',
+    icon: '🤸',
+    color: '#F39C12',
+    difficulty: 3
+  },
+  {
+    value: 'advanced',
+    label: 'Advanced',
+    description: 'Complex movements',
+    icon: '🎯',
+    color: '#E74C3C',
+    difficulty: 4
+  }
+] as const;
+
+// Flexibility Types with clear descriptions
+export const FLEXIBILITY_TYPES = [
+  {
+    value: 'static',
+    label: 'Static',
+    description: 'Hold stretches for 15-60 seconds',
+    icon: '🧘',
+    color: '#3498DB',
+    purpose: 'Improve flexibility and reduce muscle tension'
+  },
+  {
+    value: 'dynamic',
+    label: 'Dynamic',
+    description: 'Controlled movements through full range',
+    icon: '🔄',
+    color: '#E67E22',
+    purpose: 'Enhance mobility and prepare for activity'
+  },
+  {
+    value: 'proprioceptive',
+    label: 'Proprioceptive',
+    description: 'Proprioceptive neuromuscular facilitation',
+    icon: '🧠',
+    color: '#9B59B6',
+    purpose: 'Advanced flexibility and neuromuscular control'
+  }
+] as const;
+
+// Power Metrics for specialized training
+export const POWER_METRICS = [
+  {
+    value: 'explosive',
+    label: 'Explosive',
+    description: 'Maximum force in minimum time',
+    icon: '💥',
+    color: '#E74C3C',
+    examples: ['Jump squats', 'Medicine ball throws', 'Box jumps']
+  },
+  {
+    value: 'rotational',
+    label: 'Rotational',
+    description: 'Twisting and turning power',
+    icon: '🌀',
+    color: '#F39C12',
+    examples: ['Russian twists', 'Wood chops', 'Rotational throws']
+  },
+  {
+    value: 'plyometric',
+    label: 'Plyometric',
+    description: 'Stretch-shortening cycle movements',
+    icon: '⚡',
+    color: '#3498DB',
+    examples: ['Burpees', 'Plyometric push-ups', 'Bounding']
+  }
+] as const;
+
+// Medicine Ball Weight Options
+export const MEDICINE_BALL_WEIGHTS = [
+  {
+    value: 2,
+    label: '2kg',
+    color: '#2ECC71',
+    level: 'Beginner'
+  },
+  {
+    value: 4,
+    label: '4kg',
+    color: '#3498DB',
+    level: 'Beginner-Intermediate'
+  },
+  {
+    value: 6,
+    label: '6kg',
+    color: '#F39C12',
+    level: 'Intermediate'
+  },
+  {
+    value: 8,
+    label: '8kg',
+    color: '#E67E22',
+    level: 'Intermediate-Advanced'
+  },
+  {
+    value: 10,
+    label: '10kg',
+    color: '#E74C3C',
+    level: 'Advanced'
+  },
+  {
+    value: 12,
+    label: '12kg',
+    color: '#8E44AD',
+    level: 'Expert'
+  }
+] as const;
+
+// Stability Ball Size Options
+export const STABILITY_BALL_SIZES = [
+  {
+    value: 55,
+    label: '55cm',
+    height: 'Under 5\'0"',
+    color: '#2ECC71'
+  },
+  {
+    value: 65,
+    label: '65cm',
+    height: '5\'0" - 5\'7"',
+    color: '#3498DB'
+  },
+  {
+    value: 75,
+    label: '75cm',
+    height: '5\'8" - 6\'3"',
+    color: '#F39C12'
+  }
+] as const;
+
+// Progression Levels with visual indicators
+export const PROGRESSION_LEVELS = [
+  {
+    value: 1,
+    label: 'Level 1',
+    description: 'Foundation building',
+    icon: '🌱',
+    color: '#2ECC71'
+  },
+  {
+    value: 2,
+    label: 'Level 2',
+    description: 'Basic movements',
+    icon: '🌿',
+    color: '#52D681'
+  },
+  {
+    value: 3,
+    label: 'Level 3',
+    description: 'Intermediate skills',
+    icon: '🍃',
+    color: '#F39C12'
+  },
+  {
+    value: 4,
+    label: 'Level 4',
+    description: 'Advanced techniques',
+    icon: '🌳',
+    color: '#E67E22'
+  },
+  {
+    value: 5,
+    label: 'Level 5',
+    description: 'Expert mastery',
+    icon: '🌲',
+    color: '#E74C3C'
+  }
+] as const;
+
 // Type exports for TypeScript
 export type ExerciseCategory = typeof EXERCISE_CATEGORIES[number]['value'];
 export type MuscleGroup = typeof MUSCLE_GROUPS[number]['value'];
@@ -316,6 +575,14 @@ export type SortField = typeof SORT_OPTIONS[number]['value'];
 export type EquipmentAvailability = typeof EQUIPMENT_AVAILABILITY[number]['value'];
 export type FilterPresetId = typeof FILTER_PRESETS[number]['id'];
 export type MuscleRegion = 'upper' | 'core' | 'lower' | 'full';
+
+// Phase 4 Type Exports
+export type BalanceRequirement = typeof BALANCE_REQUIREMENTS[number]['value'];
+export type FlexibilityType = typeof FLEXIBILITY_TYPES[number]['value'];
+export type PowerMetric = typeof POWER_METRICS[number]['value'];
+export type MedicineBallWeight = typeof MEDICINE_BALL_WEIGHTS[number]['value'];
+export type StabilityBallSize = typeof STABILITY_BALL_SIZES[number]['value'];
+export type ProgressionLevel = typeof PROGRESSION_LEVELS[number]['value'];
 
 // Helper functions
 export const getMuscleGroupsByRegion = (region: MuscleRegion) => {

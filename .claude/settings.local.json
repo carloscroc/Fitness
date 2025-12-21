@@ -30,7 +30,9 @@
       "Bash(npm run)",
       "mcp__filesystem__read_file",
       "mcp__filesystem__search_files",
-      "mcp__filesystem__read_multiple_files"
+      "mcp__filesystem__read_multiple_files",
+      "mcp__MCP_DOCKER__write_file",
+      "Bash(npx tsc:*)"
     ]
   }
 }
