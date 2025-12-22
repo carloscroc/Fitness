@@ -229,3 +229,5 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ type
     document.body
   );
 };
+
+export default ProfileSettingsModal;

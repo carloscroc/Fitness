@@ -84,6 +84,8 @@ import {
 import { Exercise } from '../data/exercises.ts';
 import { ExerciseWithSource } from '../types/exercise.ts';
 import { isFeatureEnabled } from '../services/featureFlags';
+import { getYouTubeThumbnail, getYouTubeId } from '../utils/video';
+import { getExerciseImage } from '../utils/images';
 
 /**
  * Phase 4 Exercise Extensions
@@ -237,41 +239,7 @@ const POWER_COLORS = {
 } as const;
 
 // Utility functions
-const getYouTubeId = (url?: string): string | null => {
-  if (!url) return null;
-  const raw = url.trim();
-  if (!raw) return null;
-
-  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
-
-  try {
-    const u = new URL(raw, 'https://example.com');
-    const v = u.searchParams.get('v');
-    if (v && v.length >= 8) return v.substring(0, 11);
-
-    const pathMatch = u.pathname.match(/\/(?:shorts|live|embed|v)\/([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i);
-    if (pathMatch?.[1]) return pathMatch[1].length > 11 ? pathMatch[1].slice(0, 11) : pathMatch[1];
-
-    if (u.hostname.toLowerCase().includes('youtu.be')) {
-      const id = u.pathname.split('/').filter(Boolean)[0];
-      if (id) return id.length > 11 ? id.slice(0, 11) : id;
-    }
-  } catch (e) {
-    // Fall through to regex
-  }
-
-  try {
-    const re = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{7,})(?:[?&\/]|$)/i;
-    const m = String(raw).match(re);
-    if (m && m[1]) {
-      return m[1].length > 11 ? m[1].slice(0, 11) : m[1];
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return null;
-};
+// getYouTubeId is imported from ../utils/video
 
 const getQualityLevel = (exercise: Exercise | ExerciseWithSource) => {
   const hasVideo = !!(exercise as ExerciseWithSource).video || getYouTubeId(exercise.video);
@@ -661,7 +629,7 @@ const EquipmentModifierTooltip = memo<{ modifiers?: ExerciseEquipmentModifiers; 
 EquipmentModifierTooltip.displayName = 'EquipmentModifierTooltip';
 
 // Skeleton loader component
-const ExerciseCardSkeleton = ({ variant = 'grid' }: { variant?: ExerciseCardProps['variant'] }) => {
+const ExerciseCardSkeleton = ({ variant = 'grid' }: { variant?: 'grid' | 'list' | 'minimal' | 'selection' }) => {
   const mode = VIEW_MODES[variant || 'grid'];
 
   if (variant === 'list') {
@@ -743,7 +711,10 @@ export const ExerciseCard = memo<ExerciseCardProps>(({
     equipment_modifiers
   } = exerciseWithPhase4;
 
-  const exerciseImage = exercise.image || getFallbackImage(exercise.name);
+  const videoThumbnail = getYouTubeThumbnail(exercise.video);
+  // Prioritize professional image -> muscle fallback. 
+  // Video thumbnail is used only if strictly no image is available (unlikely with our utility) or if explicitly requested in future.
+  const exerciseImage = getExerciseImage(exercise) || videoThumbnail || getFallbackImage(exercise.name);
   const qualityColor = QUALITY_COLORS[qualityLevel];
   const difficultyColor = DIFFICULTY_COLORS[exercise.difficulty];
   const muscleColor = MUSCLE_COLORS[exercise.muscle as keyof typeof MUSCLE_COLORS] || 'bg-zinc-500/20 text-zinc-300';
@@ -791,7 +762,7 @@ export const ExerciseCard = memo<ExerciseCardProps>(({
   };
 
   if (isLoading) {
-    return <ExerciseCardSkeleton variant={variant} />;
+    return <ExerciseCardSkeleton variant={variant as 'grid' | 'list' | 'minimal' | 'selection'} />;
   }
 
   const isList = variant === 'list';
@@ -820,16 +791,12 @@ export const ExerciseCard = memo<ExerciseCardProps>(({
       onMouseLeave={() => setIsHovered(false)}
       tabIndex={tabIndex}
       role="button"
-      aria-label={`Exercise: ${exercise.name}. Target muscle: ${exercise.muscle}. Equipment: ${exercise.equipment}. Difficulty: ${exercise.difficulty}. ${hasVideo ? 'Has video demonstration.' : 'No video available.'}${
-        supportsPhase4 && progression_level ? ` Progression level: ${getProgressionLevelText(progression_level)}.` : ''
-      }${
-        supportsPhase4 && balance_requirement && balance_requirement !== 'none' ? ` Balance requirement: ${getBalanceRequirementText(balance_requirement)}.` : ''
-      }${
-        supportsPhase4 && flexibility_type ? ` Flexibility type: ${getFlexibilityTypeText(flexibility_type)}.` : ''
-      }${
-        supportsPhase4 && power_metrics && (power_metrics.explosive || power_metrics.rotational || power_metrics.plyometric) ?
+      aria-label={`Exercise: ${exercise.name}. Target muscle: ${exercise.muscle}. Equipment: ${exercise.equipment}. Difficulty: ${exercise.difficulty}. ${hasVideo ? 'Has video demonstration.' : 'No video available.'}${supportsPhase4 && progression_level ? ` Progression level: ${getProgressionLevelText(progression_level)}.` : ''
+        }${supportsPhase4 && balance_requirement && balance_requirement !== 'none' ? ` Balance requirement: ${getBalanceRequirementText(balance_requirement)}.` : ''
+        }${supportsPhase4 && flexibility_type ? ` Flexibility type: ${getFlexibilityTypeText(flexibility_type)}.` : ''
+        }${supportsPhase4 && power_metrics && (power_metrics.explosive || power_metrics.rotational || power_metrics.plyometric) ?
           ` Power metrics: ${power_metrics.explosive ? 'explosive ' : ''}${power_metrics.rotational ? 'rotational ' : ''}${power_metrics.plyometric ? 'plyometric' : ''}.` : ''
-      }`}
+        }`}
       data-testid={testId || `exercise-card-${exercise.id}`}
       data-variant={variant}
       data-selected={selected}
@@ -852,11 +819,10 @@ export const ExerciseCard = memo<ExerciseCardProps>(({
       {multiSelect && (
         <div className="absolute top-2 left-2 z-20">
           <motion.div
-            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-              selected
-                ? 'bg-[#0A84FF] border-[#0A84FF]'
-                : 'border-white/20 bg-black/40 backdrop-blur-sm'
-            }`}
+            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selected
+              ? 'bg-[#0A84FF] border-[#0A84FF]'
+              : 'border-white/20 bg-black/40 backdrop-blur-sm'
+              }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
@@ -893,13 +859,12 @@ export const ExerciseCard = memo<ExerciseCardProps>(({
       {/* Data source indicator (development only) */}
       {showDataSource && exerciseWithSource && isFeatureEnabled('SHOW_DATA_SOURCE_INDICATORS', false) && !isMinimal && (
         <div className="absolute bottom-2 right-2 z-20">
-          <div className={`px-2 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${
-            exerciseWithSource.dataSource === 'frontend'
-              ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
-              : exerciseWithSource.isOriginal
+          <div className={`px-2 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${exerciseWithSource.dataSource === 'frontend'
+            ? 'bg-blue-500/20 border-blue-500/30 text-blue-400'
+            : exerciseWithSource.isOriginal
               ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400'
               : 'bg-green-500/20 border-green-500/30 text-green-400'
-          }`}>
+            }`}>
             {exerciseWithSource.isOriginal ? 'ORIGINAL' : exerciseWithSource.dataSource.toUpperCase()}
           </div>
         </div>

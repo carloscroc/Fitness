@@ -8,9 +8,12 @@ import {
 } from 'lucide-react';
 import { AppView } from '../types.ts';
 import { Button } from '../components/ui/Button.tsx';
-import { HelpCenter } from '../components/HelpCenter.tsx';
-import { SubscriptionModal } from '../components/SubscriptionModal.tsx';
-import { ProfileSettingsModal, SettingsType } from '../components/ProfileSettingsModal.tsx';
+import { LazyHelpCenter } from '../components/LazyModal.tsx';
+import { LazySubscriptionModal } from '../components/LazyModal.tsx';
+import { LazyProfileSettingsModal } from '../components/LazyModal.tsx';
+
+// Import SettingsType type from the actual component
+import type { SettingsType } from '../components/ProfileSettingsModal.tsx';
 
 interface ProfileProps {
   onNavigate: (view: AppView) => void;
@@ -192,9 +195,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
       {/* Help Center Modal */}
       <AnimatePresence>
         {helpTab && (
-            <HelpCenter 
-                initialTab={helpTab} 
-                onClose={() => setHelpTab(null)} 
+            <LazyHelpCenter
+                initialTab={helpTab}
+                onClose={() => setHelpTab(null)}
             />
         )}
       </AnimatePresence>
@@ -202,16 +205,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
       {/* Subscription Modal */}
       <AnimatePresence>
         {isSubscriptionModalOpen && (
-            <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
+            <LazySubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} />
         )}
       </AnimatePresence>
 
       {/* Settings Modal */}
       <AnimatePresence>
         {settingsModal.isOpen && settingsModal.type && (
-            <ProfileSettingsModal 
-                type={settingsModal.type} 
-                onClose={() => setSettingsModal({ isOpen: false, type: null })} 
+            <LazyProfileSettingsModal
+                type={settingsModal.type}
+                onClose={() => setSettingsModal({ isOpen: false, type: null })}
             />
         )}
       </AnimatePresence>

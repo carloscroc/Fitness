@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { AppView, WorkoutDay, Meal, ScheduleItem } from '../types.ts';
 import { Button } from '../components/ui/Button.tsx';
-import { MealDetailModal } from '../components/MealDetailModal.tsx';
-import { ExerciseLibraryModal } from '../components/ExerciseLibraryModal.tsx';
+import { LazyMealDetailModal } from '../components/LazyModal.tsx';
+import { LazyExerciseLibraryModal } from '../components/LazyModal.tsx';
 import { Exercise } from '../data/exercises.ts';
 
 // Display Schedule Data for the default strip
@@ -737,7 +737,7 @@ export const Calendar: React.FC<CalendarProps> = ({ onNavigate, onStartWorkout, 
 
       <AnimatePresence>
         {viewingMeal && (
-            <MealDetailModal 
+            <LazyMealDetailModal
                 meal={viewingMeal}
                 onClose={() => setViewingMeal(null)}
                 isLibraryItem={false}
@@ -745,7 +745,7 @@ export const Calendar: React.FC<CalendarProps> = ({ onNavigate, onStartWorkout, 
         )}
       </AnimatePresence>
 
-      <ExerciseLibraryModal
+      <LazyExerciseLibraryModal
         isOpen={isLibraryOpen}
         onClose={() => setIsLibraryOpen(false)}
         onMultiSelect={handleMultiSelectFromLibrary}

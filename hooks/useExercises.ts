@@ -157,6 +157,51 @@ function mergeExercises(
 }
 
 /**
+ * Calculate how many backend exercises match with frontend exercises
+ * based on name similarity, muscle groups, and equipment
+ */
+function calculateMatchedExercises(frontend: ExerciseWithSource[], backend: ExerciseWithSource[]): number {
+  let matchedCount = 0;
+
+  backend.forEach(backendEx => {
+    const isMatched = frontend.some(frontendEx => {
+      // Check for exact or similar names
+      const frontendName = frontendEx.name.toLowerCase().trim();
+      const backendName = backendEx.name.toLowerCase().trim();
+
+      // Exact name match
+      if (frontendName === backendName) return true;
+
+      // Name contains match (one contains the other)
+      if (frontendName.includes(backendName) || backendName.includes(frontendName)) return true;
+
+      // Check for word similarity (split by common separators)
+      const frontendWords = frontendName.split(/[\s-]+/);
+      const backendWords = backendName.split(/[\s-]+/);
+
+      // If at least 2 words match, consider it a match
+      const commonWords = frontendWords.filter(word =>
+        word.length > 2 && backendWords.includes(word)
+      );
+
+      if (commonWords.length >= 2) return true;
+
+      // Check for same muscle group and similar equipment
+      if (frontendEx.muscle === backendEx.muscle &&
+          frontendEx.equipment.toLowerCase().includes(backendEx.equipment.toLowerCase())) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (isMatched) matchedCount++;
+  });
+
+  return matchedCount;
+}
+
+/**
  * Calculate migration statistics
  */
 function calculateMigrationStats(exercises: ExerciseWithSource[]): MigrationStats {
@@ -167,8 +212,8 @@ function calculateMigrationStats(exercises: ExerciseWithSource[]): MigrationStat
     totalFrontendExercises: frontend.length,
     totalBackendExercises: backend.length,
     totalMergedExercises: exercises.length,
-    matchedExercises: 0, // TODO: Implement matching logic
-    unmatchedExercises: backend.length,
+    matchedExercises: calculateMatchedExercises(frontend, backend),
+    unmatchedExercises: backend.length - calculateMatchedExercises(frontend, backend),
     dataCompleteness: {
       withVideo: exercises.filter(ex => ex.quality.hasVideo).length,
       withInstructions: exercises.filter(ex => ex.quality.hasInstructions).length,

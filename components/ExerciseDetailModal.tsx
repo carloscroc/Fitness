@@ -1005,3 +1005,5 @@ export const ExerciseDetailModal: React.FC<ExerciseDetailModalProps> = ({
     document.body
   );
 };
+
+export default ExerciseDetailModal;

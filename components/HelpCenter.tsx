@@ -273,3 +273,5 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ initialTab = 'TUTORIALS'
     document.body
   );
 };
+
+export default HelpCenter;

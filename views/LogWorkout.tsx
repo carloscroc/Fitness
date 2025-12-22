@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useMotionValue, useTransform, useAnimation, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Trash2, Check, Plus, Clock, Zap, Dumbbell, ChevronRight, Calculator, ChevronLeft, Play, Maximize2, MoreHorizontal, List, Grid, Info, Minimize2, Pause } from 'lucide-react';
-import { ExerciseLibraryModal } from '../components/ExerciseLibraryModal.tsx';
+import { LazyExerciseLibraryModal } from '../components/LazyModal.tsx';
 import { useExercises } from '../hooks/useExercises';
 import type { Exercise } from '../data/exercises.ts';
 import { TimerModal } from '../components/TimerModal.tsx';
@@ -579,7 +579,7 @@ export const LogWorkout: React.FC<LogWorkoutProps> = ({ onClose, initialWorkout 
       </AnimatePresence>
 
       {/* Modals */}
-      <ExerciseLibraryModal 
+      <LazyExerciseLibraryModal
         isOpen={isLibraryOpen}
         onClose={() => setIsLibraryOpen(false)}
         onSelect={addExercise}

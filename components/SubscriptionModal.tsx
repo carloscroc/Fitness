@@ -422,3 +422,5 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose })
     document.body
   );
 };
+
+export default SubscriptionModal;

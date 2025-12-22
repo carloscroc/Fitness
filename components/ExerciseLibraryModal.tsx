@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Exercise } from '../data/exercises.ts';
 import { useExercises, useBaseExercises } from '../hooks/useExercises';
-import { ExerciseDetailModal } from './ExerciseDetailModal.tsx';
+import { LazyExerciseDetailModal } from './LazyModal.tsx';
 import { Button } from './ui/Button.tsx';
 import { ExerciseWithSource, ExerciseFilterOptions, ExerciseSortOptions } from '../types/exercise';
 import { isFeatureEnabled } from '../services/featureFlags';
@@ -891,13 +891,13 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
           )}
           
           {selectedExercise && (
-             <ExerciseDetailModal 
-               exercise={selectedExercise} 
+             <LazyExerciseDetailModal
+               exercise={selectedExercise}
                autoPlay={pendingAutoPlay}
                onClose={() => { setSelectedExercise(null); setPendingAutoPlay(false); }}
                onAddToWorkout={
                    mode === 'select' && onSelect && !multiSelect
-                   ? () => { onSelect(selectedExercise); onClose(); } 
+                   ? () => { onSelect(selectedExercise); onClose(); }
                    : undefined
                }
              />
@@ -909,3 +909,5 @@ export const ExerciseLibraryModal: React.FC<ExerciseLibraryModalProps> = ({
     document.body
   );
 };
+
+export default ExerciseLibraryModal;

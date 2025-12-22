@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Dashboard } from './views/Dashboard.tsx';
 import { Coach } from './views/Coach.tsx';
@@ -12,6 +12,10 @@ import { LogWorkout } from './views/LogWorkout.tsx';
 import { ActionSheet } from './components/ActionSheet.tsx';
 import { AppView, WorkoutDay, ScheduleItem } from './types.ts';
 import { AnimatePresence } from 'framer-motion';
+import { useServiceWorker } from './utils/serviceWorker.ts';
+import { LazyExerciseDetailModal, LazyExerciseLibraryModal, LazyProgramDetailModal, LazyMealDetailModal, LazyProfileSettingsModal, LazyNotificationsModal, LazySubscriptionModal, LazyHelpCenter, useModalPreloader } from './components/LazyModal.tsx';
+import { usePrefetchExercises } from './hooks/useExercisesEnhanced.ts';
+import { PerformanceMonitor } from './components/PerformanceMonitor.tsx';
 
 // Initial Schedule Data lifted from Calendar
 const INITIAL_SCHEDULE_DATA: Record<string, ScheduleItem[]> = {
@@ -137,16 +141,65 @@ const INITIAL_SCHEDULE_DATA: Record<string, ScheduleItem[]> = {
 export default function App() {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [viewParams, setViewParams] = useState<any>({});
-  
+
   // State for active workout data
   const [activeWorkoutData, setActiveWorkoutData] = useState<WorkoutDay | null>(null);
-  
+
   // Global Schedule State
   const [scheduleData, setScheduleData] = useState<Record<string, ScheduleItem[]>>(INITIAL_SCHEDULE_DATA);
 
   // State for modals/sheets
   const [isLoggingOpen, setIsLoggingOpen] = useState(false);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+
+  // Initialize service worker and caching
+  const { isRegistered: swRegistered, cacheImages } = useServiceWorker({
+    enableImageCaching: true,
+    enableBackgroundSync: true,
+    preloadImages: [
+      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48',
+      'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e',
+      'https://images.unsplash.com/photo-1517836357463-d25dfeac3438',
+      'https://images.unsplash.com/photo-1603287681836-e174ce7562f2',
+      'https://images.unsplash.com/photo-1574680096145-d05b474e2155',
+      'https://images.unsplash.com/photo-1517673132405-a56a62b18caf'
+    ]
+  });
+
+  // Initialize modal preloader and exercise prefetching
+  const { preloadAllModals } = useModalPreloader();
+  const { prefetchExercise, prefetchCategory } = usePrefetchExercises();
+
+  // Performance optimizations
+  useEffect(() => {
+    // Preload modal components after initial render
+    const timer = setTimeout(() => {
+      preloadAllModals();
+    }, 2000);
+
+    // Prefetch common exercise categories
+    const prefetchCategories = ['Chest', 'Back', 'Legs', 'Shoulders'];
+    prefetchCategories.forEach((category, index) => {
+      setTimeout(() => {
+        prefetchCategory(category);
+      }, 3000 + index * 500);
+    });
+
+    // Cache common images
+    const commonImages = [
+      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48',
+      'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e',
+      'https://images.unsplash.com/photo-1517836357463-d25dfeac3438'
+    ];
+
+    if (swRegistered) {
+      setTimeout(() => {
+        cacheImages(commonImages);
+      }, 5000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [swRegistered, preloadAllModals, prefetchCategory, prefetchExercise, cacheImages]);
 
   const handleNavigate = (view: AppView, params?: any) => {
     setCurrentView(view);
@@ -313,6 +366,9 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* Development-only performance monitoring */}
+      {import.meta.env.DEV && <PerformanceMonitor />}
     </Layout>
   );
 }

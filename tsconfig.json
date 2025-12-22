@@ -31,12 +31,10 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
     "noImplicitAny": false,
     "noImplicitReturns": false,
     "noImplicitThis": false,
     "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true
+    "noUnusedParameters": false
   }
 }

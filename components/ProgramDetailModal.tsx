@@ -354,3 +354,5 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({ onClose,
     document.body
   );
 };
+
+export default ProgramDetailModal;

@@ -6,8 +6,7 @@ import {
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { AppView, WorkoutDay } from '../types.ts';
 import { TimerModal } from '../components/TimerModal.tsx';
-import { NotificationsModal } from '../components/NotificationsModal.tsx';
-import { GlobalSearchModal } from '../components/GlobalSearchModal.tsx';
+import { LazyNotificationsModal } from '../components/LazyModal.tsx';
 import { EXERCISE_DB } from '../data/exercises.ts';
 
 // Nutrition Data
@@ -252,7 +251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isNotificationsOpen && <NotificationsModal onClose={() => setIsNotificationsOpen(false)} />}
+        {isNotificationsOpen && <LazyNotificationsModal onClose={() => setIsNotificationsOpen(false)} />}
       </AnimatePresence>
 
       <AnimatePresence>

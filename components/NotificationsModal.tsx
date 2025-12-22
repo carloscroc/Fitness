@@ -130,3 +130,5 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
     document.body
   );
 };
+
+export default NotificationsModal;
