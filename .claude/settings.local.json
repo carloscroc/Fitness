@@ -33,7 +33,12 @@
       "mcp__filesystem__read_multiple_files",
       "mcp__MCP_DOCKER__write_file",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Skill(superpowers:using-superpowers)",
+      "mcp__MCP_DOCKER__list_directory",
+      "Bash(npm test:*)",
+      "Bash(npx vitest --version)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
